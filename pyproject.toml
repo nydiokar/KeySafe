@@ -4,28 +4,28 @@ build-backend = "hatchling.build"
 
 [project]
 name = "secure_credentials"
-version = "1.1.1"
+version = "1.2.0"
 description = "A secure credential manager with GUI interface"
 readme = "README.md"
 requires-python = ">=3.8"
 license = "MIT"
 dependencies = [
-    "ttkbootstrap>=1.10.1",
-    "pykeepass>=4.0.3",
-    "pyperclip>=1.8.2",
-    "pillow>=9.5.0",
-    "pystray>=0.19.4",
-    "packaging>=23.1",
-    "requests>=2.31.0",
-    "olefile>=0.46",
+    "ttkbootstrap>=1.13.0",
+    "pykeepass>=4.1.1",
+    "pyperclip>=1.9.0",
+    "pillow>=10.0.0,<11.0.0",
+    "pystray>=0.19.5",
+    "packaging>=24.2",
+    "requests>=2.32.3",
+    "olefile>=0.47",
     "pywin32>=306"
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.3.1",
-    "black>=23.3.0",
-    "pyinstaller>=5.13.0"
+    "pytest>=8.3.5",
+    "black>=25.1.0",
+    "pyinstaller>=6.14.2"
 ]
 
 [project.scripts]

@@ -27,7 +27,7 @@ if not exist secure_credentials\assets mkdir secure_credentials\assets
 
 :: Build the executable
 echo Building executable...
-pyinstaller SecureCredentialManager.spec
+pyinstaller secure_credentials.spec
 
 echo.
 if exist dist\SecureCredentialManager.exe (
