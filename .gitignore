@@ -1,0 +1,61 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Project specific
+secure_credentials/credentials.kdbx
+secure_credentials/*.key
+secure_credentials/*.kdbx
+secure_credentials/*.kdb
+secure_credentials/*.log
+secure_credentials/logs/
+secure_credentials/.secure_credentials/
+secure_credentials/config.json
+secure_credentials/settings.json
+
+# Build artifacts
+dist/
+build/
+*.spec
+*.manifest
+*.exe
+*.msi
+*.nsi
+
+# OS specific
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/ 
