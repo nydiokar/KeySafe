@@ -159,6 +159,111 @@ The executable will be created in the `dist` directory.
 
 The executable will be created in the `dist` directory.
 
+## Web Server Mode (Network Access)
+
+Run the application as a web server to access it from any device on your network via browser.
+
+### Quick Start
+
+```bash
+# Install dependencies
+pip install -e .
+
+# Run web server (accessible at http://localhost:5000)
+secure-credentials-web
+
+# Or run directly
+python -m secure_credentials.src.web_app
+```
+
+### Advanced Configuration
+
+#### Environment Variables
+```bash
+# Set server port
+export FLASK_PORT=8080
+
+# Allow external access (use with caution!)
+export HOST=0.0.0.0
+
+# Enable debug mode
+export FLASK_ENV=development
+
+# Set custom secret key (important for production!)
+export SECRET_KEY="your-secure-random-key-here"
+```
+
+#### Access from Network
+```bash
+# Run on all interfaces (accessible from other devices)
+HOST=0.0.0.0 secure-credentials-web
+
+# Then access from another device at: http://YOUR_SERVER_IP:5000
+```
+
+### Security Considerations
+
+⚠️ **Important Security Notes:**
+
+1. **Network Access**: By default, the web server only listens on `127.0.0.1` (localhost)
+2. **HTTPS**: The built-in server doesn't provide HTTPS - use a reverse proxy (nginx/apache) for production
+3. **Firewall**: Configure your firewall to restrict access to trusted networks only
+4. **VPN**: Consider running through a VPN for remote access
+5. **Session Security**: The web interface maintains sessions but doesn't implement advanced security features
+
+#### Security Setup Script
+
+Use the automated security setup script for basic network security:
+
+```bash
+# Make executable and run interactive setup
+chmod +x setup_security.sh
+./setup_security.sh
+
+# Or run specific components
+./setup_security.sh firewall    # Setup firewall rules
+./setup_security.sh ssl         # Generate SSL certificate
+./setup_security.sh service     # Create systemd service
+./setup_security.sh config      # Generate secure config
+./setup_security.sh all         # Run complete setup
+```
+
+#### Production Deployment
+
+For production use, deploy behind a proper web server:
+
+```bash
+# Using Gunicorn (recommended for production)
+pip install gunicorn
+gunicorn -w 4 -b 0.0.0.0:8000 "secure_credentials.src.web_app:app"
+
+# Using nginx as reverse proxy (example)
+server {
+    listen 443 ssl;
+    server_name your-domain.com;
+
+    ssl_certificate /path/to/ssl/server.crt;
+    ssl_certificate_key /path/to/ssl/server.key;
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+### Web Interface Features
+
+- **Browser-based GUI**: Full credential management through web interface
+- **Tabbed Organization**: Separate views for Passwords, API Keys, and Other credentials
+- **Real-time Search**: Filter credentials instantly
+- **Secure Access**: Master password required, individual passwords for each credential
+- **Responsive Design**: Works on desktop and mobile browsers
+- **Session Management**: Automatic logout on browser close
+
 ### Manual Build (Cross-platform)
 
 1. Install development dependencies:

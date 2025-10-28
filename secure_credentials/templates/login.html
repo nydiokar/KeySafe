@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Login - Secure Credential Manager{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title mb-0">
+                    <i class="bi bi-key"></i> Master Password Required
+                </h3>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Enter your master password to access the credential vault.</p>
+
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="master_password" class="form-label">
+                            <i class="bi bi-lock"></i> Master Password
+                        </label>
+                        <input type="password"
+                               class="form-control"
+                               id="master_password"
+                               name="master_password"
+                               required
+                               autocomplete="current-password">
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-box-arrow-in-right"></i> Unlock Vault
+                        </button>
+                    </div>
+                </form>
+
+                <div class="mt-3 text-center">
+                    <small class="text-muted">
+                        <i class="bi bi-info-circle"></i>
+                        Your master password is never stored and is required to access the encrypted database.
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

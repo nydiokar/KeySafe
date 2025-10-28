@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "secure_credentials"
 version = "1.0.0"
-description = "A secure credential manager with GUI interface"
+description = "A secure credential manager with GUI and web interfaces"
 readme = "README.md"
 requires-python = ">=3.8"
 license = "MIT"
@@ -17,7 +17,10 @@ dependencies = [
     "pystray>=0.19.4",
     "packaging>=23.1",
     "requests>=2.31.0",
-    "olefile>=0.46"
+    "olefile>=0.46",
+    "flask>=2.3.0",
+    "flask-login>=0.6.0",
+    "werkzeug>=2.3.0"
 ]
 
 [project.optional-dependencies]
@@ -29,6 +32,7 @@ dev = [
 
 [project.scripts]
 secure-credentials = "secure_credentials.src.run_app:main"
+secure-credentials-web = "secure_credentials.src.web_app:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["secure_credentials"] 
