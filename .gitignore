@@ -52,6 +52,7 @@ installer.nsi
 # Windows specific
 run_app_debug.log
 *.bat
+!build.bat
 
 # Testing
 .pytest_cache/

@@ -174,12 +174,13 @@ def run_direct_gui():
         logger.exception(f"Error in run_direct_gui: {str(e)}")
         sys.exit(1)
 
-if __name__ == "__main__":
+def main():
+    """Main entry point for the application."""
     # Get mode from command line argument
     mode = sys.argv[1] if len(sys.argv) > 1 else "normal"
-    
+
     logger.info(f"Starting app in {mode} mode")
-    
+
     if mode == "debug":
         run_debug()
     elif mode == "test_window":
@@ -187,4 +188,7 @@ if __name__ == "__main__":
     elif mode == "direct_gui":
         run_direct_gui()
     else:
-        run_normal() 
+        run_normal()
+
+if __name__ == "__main__":
+    main() 
