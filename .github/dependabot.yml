@@ -4,13 +4,13 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-      day: "monday"
-      time: "09:00"
-    open-pull-requests-limit: 10
+      day: "wednesday"
+      time: "14:00"
+    open-pull-requests-limit: 3
     reviewers:
-      - "your-username"  # Replace with your GitHub username
+      - "nydiokar"
     assignees:
-      - "your-username"  # Replace with your GitHub username
+      - "nydiokar"
     commit-message:
       prefix: "deps"
       include: "scope"
@@ -21,26 +21,24 @@ updates:
       security-updates:
         applies-to: security-updates
         update-types:
-          - "minor"
           - "patch"
-      flask-updates:
+      major-updates:
+        update-types:
+          - "major"
+      key-security-libs:
         patterns:
-          - "flask*"
-          - "werkzeug"
-      security-libs:
-        patterns:
-          - "cryptography"
           - "pykeepass"
+          - "cryptography"
 
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
+      interval: "monthly"
+    open-pull-requests-limit: 2
     reviewers:
-      - "your-username"
+      - "nydiokar"
     assignees:
-      - "your-username"
+      - "nydiokar"
     commit-message:
       prefix: "ci"
     labels:
