@@ -24,16 +24,16 @@ except ImportError:
         DACL_SECURITY_INFORMATION: int = 4
 
         def ACL(self) -> Any:
-            return None
+            raise NotImplementedError("Windows security not available on this platform")
 
         def LookupAccountName(self, domain: str, username: str) -> tuple[Any, Any, Any]:
-            return (None, None, None)
+            raise NotImplementedError("Windows security not available on this platform")
 
         def GetFileSecurity(self, path: str, info_type: int) -> Any:
-            return None
+            raise NotImplementedError("Windows security not available on this platform")
 
         def SetFileSecurity(self, path: str, info_type: int, security: Any) -> None:
-            pass
+            raise NotImplementedError("Windows security not available on this platform")
 
     class Win32ConDummy:
         GENERIC_READ: int = 0x80000000
