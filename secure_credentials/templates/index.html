@@ -264,9 +264,15 @@
                         <input type="password"
                                class="form-control"
                                id="credentialPassword"
-                               placeholder="Enter the password for this specific credential">
+                               placeholder="Enter the password for this specific credential"
+                               onkeydown="if(event.key === 'Enter') submitCredentialPassword()">
                     </div>
                     <div id="modalError" class="alert alert-danger" style="display: none;"></div>
+                    <div class="d-grid gap-2">
+                        <button type="button" class="btn btn-primary" onclick="submitCredentialPassword()">
+                            <i class="bi bi-unlock"></i> Unlock Credential
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Credential Display Step -->
