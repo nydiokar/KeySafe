@@ -51,6 +51,18 @@ A secure and user-friendly credential manager with GUI interface, built with Pyt
 
 ## Usage
 
+### Quick Reference - How to Run
+
+| Method | Platform | Command | Description |
+|--------|----------|---------|-------------|
+| **Desktop GUI** | Windows/Linux/Mac | `secure-credentials` | Full GUI application |
+| **Desktop GUI** | Windows/Linux/Mac | `python -m secure_credentials.src.run_app` | Direct Python execution |
+| **Desktop Debug** | Windows/Linux/Mac | `python -m secure_credentials.src.run_app debug` | GUI with debug logging |
+| **Web Server** | Windows/Linux/Mac | `secure-credentials-web` | Web interface at http://localhost:5000/app |
+| **Web Server** | Windows/Linux/Mac | `python -m secure_credentials.src.web_app` | Direct web app execution |
+| **Compiled Executable** | Windows | `.\dist\SecureCredentialManager.exe` | Standalone Windows app |
+| **Compiled Executable** | Linux | `./dist/SecureCredentialManager` | Standalone Linux app |
+
 ### First Time Setup
 
 1. Launch the application:
@@ -59,10 +71,13 @@ A secure and user-friendly credential manager with GUI interface, built with Pyt
    secure-credentials
 
    # Option 2: Direct module execution
-   python -m secure_credentials.run_app
+   python -m secure_credentials.src.run_app
 
    # Option 3: Debug mode (with extra logging)
-   python -m secure_credentials.run_app debug
+   python -m secure_credentials.src.run_app debug
+
+   # Option 4: Test window mode (for development)
+   python -m secure_credentials.src.run_app test_window
    ```
 2. Create a strong master password when prompted - # THERE IS NO RECOVERY
 3. The application will create a new vault file in your home directory
@@ -211,6 +226,105 @@ HOST=0.0.0.0 secure-credentials-web
 4. **VPN**: Consider running through a VPN for remote access
 5. **Session Security**: The web interface maintains sessions but doesn't implement advanced security features
 
+#### Network Deployment Guide
+
+**Complete Setup for Secure Local Network Access:**
+
+1. **Initial Setup:**
+   ```bash
+   # Clone repository and install
+   git clone <repository-url>
+   cd secure_credentials
+   pip install -e .
+
+   # Create dedicated user (recommended)
+   sudo useradd -m -s /bin/bash secureuser
+   sudo usermod -aG sudo secureuser  # Optional: for admin tasks
+   ```
+
+2. **Firewall Configuration:**
+   ```bash
+   # Allow only port 5000 from local network
+   sudo ufw allow from 192.168.1.0/24 to any port 5000
+   sudo ufw --force enable
+
+   # Or using iptables
+   sudo iptables -A INPUT -p tcp -s 192.168.1.0/24 --dport 5000 -j ACCEPT
+   sudo iptables -A INPUT -p tcp --dport 5000 -j DROP
+   ```
+
+3. **SSL/TLS Setup (Highly Recommended):**
+   ```bash
+   # Generate self-signed certificate
+   sudo openssl req -x509 -newkey rsa:4096 -keyout /etc/ssl/private/secure_credentials.key -out /etc/ssl/certs/secure_credentials.crt -days 365 -nodes
+
+   # Set proper permissions
+   sudo chmod 600 /etc/ssl/private/secure_credentials.key
+   sudo chmod 644 /etc/ssl/certs/secure_credentials.crt
+   ```
+
+4. **Run with SSL:**
+   ```bash
+   # Using SSL certificates
+   export SSL_CERT=/etc/ssl/certs/secure_credentials.crt
+   export SSL_KEY=/etc/ssl/private/secure_credentials.key
+   python -m secure_credentials.src.web_app
+   ```
+
+5. **Systemd Service (Auto-start):**
+   ```bash
+   # Create service file
+   sudo tee /etc/systemd/system/secure-credentials.service > /dev/null <<EOF
+   [Unit]
+   Description=Secure Credential Manager Web Service
+   After=network.target
+
+   [Service]
+   Type=simple
+   User=secureuser
+   WorkingDirectory=/home/secureuser/secure_credentials
+   ExecStart=/home/secureuser/secure_credentials/venv/bin/python -m secure_credentials.src.web_app
+   Restart=always
+   Environment=HOST=0.0.0.0
+   Environment=PORT=5000
+
+   [Install]
+   WantedBy=multi-user.target
+   EOF
+
+   # Enable and start service
+   sudo systemctl daemon-reload
+   sudo systemctl enable secure-credentials
+   sudo systemctl start secure-credentials
+   ```
+
+6. **Nginx Reverse Proxy (Production):**
+   ```bash
+   # Install nginx
+   sudo apt install nginx
+
+   # Create site configuration
+   sudo tee /etc/nginx/sites-available/secure-credentials > /dev/null <<EOF
+   server {
+       listen 80;
+       server_name your-server.local;  # Change to your server name
+
+       location / {
+           proxy_pass http://127.0.0.1:5000;
+           proxy_set_header Host \$host;
+           proxy_set_header X-Real-IP \$remote_addr;
+           proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+           proxy_set_header X-Forwarded-Proto \$scheme;
+       }
+   }
+   EOF
+
+   # Enable site
+   sudo ln -s /etc/nginx/sites-available/secure-credentials /etc/nginx/sites-enabled/
+   sudo nginx -t
+   sudo systemctl reload nginx
+   ```
+
 #### Security Setup Script
 
 Use the automated security setup script for basic network security:
@@ -318,6 +432,47 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - Credentials are stored in an encrypted KeePass database
 - Each credential has its own password
 - The application auto-locks after inactivity
+
+## Contributing
+
+## Deployment Options Summary
+
+| Deployment Type | Use Case | Setup Complexity | Security Level | Performance |
+|-----------------|----------|------------------|----------------|-------------|
+| **Local Desktop (GUI)** | Personal use on single machine | ⭐ Low | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
+| **Local Web (localhost)** | Personal use, browser access | ⭐⭐ Low-Medium | ⭐⭐⭐⭐ High | ⭐⭐⭐ Good |
+| **Network Web (LAN)** | Family/small office sharing | ⭐⭐⭐ Medium | ⭐⭐⭐ Medium | ⭐⭐ Good |
+| **Network Web + SSL** | Secure office sharing | ⭐⭐⭐⭐ High | ⭐⭐⭐⭐⭐ Very High | ⭐⭐ Good |
+| **Production (nginx + Gunicorn)** | Enterprise deployment | ⭐⭐⭐⭐⭐ Very High | ⭐⭐⭐⭐⭐ Production | ⭐⭐⭐⭐⭐ Excellent |
+
+### Recommended Configurations
+
+**For Personal Use:**
+```bash
+# Simple desktop app
+secure-credentials
+```
+
+**For Family Sharing:**
+```bash
+# Local network with basic security
+HOST=0.0.0.0 python -m secure_credentials.src.web_app
+# Access at: http://YOUR_SERVER_IP:5000/app
+```
+
+**For Small Office:**
+```bash
+# With SSL and firewall
+# Follow the "Network Deployment Guide" above
+# Use nginx reverse proxy + SSL certificates
+```
+
+**For Enterprise:**
+```bash
+# Production deployment
+# Use Gunicorn + nginx + SSL + firewall
+# Follow "Production Deployment" section
+```
 
 ## Contributing
 
