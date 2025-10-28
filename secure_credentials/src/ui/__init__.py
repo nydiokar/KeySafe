@@ -2,6 +2,6 @@
 UI components for Secure Credentials Manager
 """
 
-from .gui import CredentialManagerGUI, CredentialDialog
+from .gui import CredentialDialog, CredentialManagerGUI
 
-__all__ = ['CredentialManagerGUI', 'CredentialDialog'] 
+__all__ = ["CredentialManagerGUI", "CredentialDialog"]

@@ -35,4 +35,4 @@ secure-credentials = "secure_credentials.src.run_app:main"
 secure-credentials-web = "secure_credentials.src.web_app:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["secure_credentials"] 
+packages = ["secure_credentials"]

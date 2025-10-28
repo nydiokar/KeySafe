@@ -21,6 +21,13 @@ repos:
       - id: isort
         args: ["--profile", "black"]
 
+  - repo: https://github.com/pycqa/autoflake
+    rev: v2.3.1
+    hooks:
+      - id: autoflake
+        args: [--remove-all-unused-imports, --in-place]
+        exclude: ^create_notebook\.py$
+
   # Temporarily disabled - focus on auto-fixes only
   # - repo: https://github.com/pycqa/flake8
   #   rev: 7.0.0
