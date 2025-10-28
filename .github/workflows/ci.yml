@@ -77,7 +77,6 @@ jobs:
           echo "No test files found, skipping tests"
         fi
     - name: Upload coverage to Codecov
-      if: success() && exists('coverage.xml')
       uses: codecov/codecov-action@v3
       with:
         file: ./coverage.xml
