@@ -35,12 +35,13 @@
             border-color: #495057;
             color: #ffffff;
         }
-        .table tbody tr {
+        .table tbody tr:nth-child(odd) {
             background-color: #2d3436;
             border-color: #495057;
         }
         .table tbody tr:nth-child(even) {
-            background-color: #495057;
+            background-color: #373d42;
+            border-color: #495057;
         }
         .table tbody tr:hover {
             background-color: #495057;
@@ -49,6 +50,24 @@
             background-color: #007bff;
             border-color: #007bff;
         }
+        /* Fix modal alert contrast */
+        .modal .alert-danger {
+            color: #ffffff;
+            background-color: #dc3545;
+            border-color: #b02a37;
+        }
+        .modal .form-label {
+            color: #ffffff;
+        }
+        .modal .form-control {
+            background-color: #495057;
+            border-color: #6c757d;
+            color: #ffffff;
+        }
+        .modal .form-control::placeholder {
+            color: #adb5bd;
+        }
+
         .btn-primary:hover {
             background-color: #0056b3;
             border-color: #0056b3;

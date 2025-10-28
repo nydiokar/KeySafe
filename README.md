@@ -169,7 +169,7 @@ Run the application as a web server to access it from any device on your network
 # Install dependencies
 pip install -e .
 
-# Run web server (accessible at http://localhost:5000)
+# Run web server (accessible at http://localhost:5000/app)
 secure-credentials-web
 
 # Or run directly

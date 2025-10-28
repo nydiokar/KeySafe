@@ -74,8 +74,15 @@ def get_security_manager():
     return security_manager
 
 @app.route('/')
+def root_redirect():
+    """Redirect root to main app to avoid bot targeting."""
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+    return redirect(url_for('login'))
+
+@app.route('/app')
 @login_required
-def index():
+def dashboard():
     """Main dashboard showing all credentials."""
     try:
         kp = get_keepass_handler()
@@ -138,7 +145,7 @@ def login():
                     session['password_hash'] = generate_password_hash(master_password)
                     login_user(User('admin'))
                     flash('Successfully logged in!', 'success')
-                    return redirect(url_for('index'))
+                    return redirect(url_for('dashboard'))
                 else:
                     flash('Invalid master password.', 'error')
             else:
@@ -149,7 +156,7 @@ def login():
                     session['password_hash'] = generate_password_hash(master_password)
                     login_user(User('admin'))
                     flash('Database created and login successful!', 'success')
-                    return redirect(url_for('index'))
+                    return redirect(url_for('dashboard'))
                 else:
                     flash('Failed to create database.', 'error')
 
@@ -193,7 +200,7 @@ def add_credential():
             kp = get_keepass_handler()
             if kp.add_credential(name, value, cred_type, credential_password):
                 flash('Credential added successfully!', 'success')
-                return redirect(url_for('index'))
+                return redirect(url_for('dashboard'))
             else:
                 flash('Failed to add credential.', 'error')
 
@@ -258,7 +265,7 @@ def edit_credential(name):
         try:
             if kp.edit_credential(name, new_name, new_value, new_type, current_password):
                 flash('Credential updated successfully!', 'success')
-                return redirect(url_for('index'))
+                return redirect(url_for('dashboard'))
             else:
                 flash('Failed to update credential. Check your current password.', 'error')
 
