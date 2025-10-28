@@ -348,6 +348,7 @@ document.getElementById('searchInput').addEventListener('input', function() {
 let currentCredentialName = '';
 
 function viewCredential(name) {
+    console.log('viewCredential called with:', name); // Debug log
     currentCredentialName = name;
 
     // Reset modal state
