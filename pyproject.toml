@@ -20,7 +20,8 @@ dependencies = [
     "olefile>=0.46",
     "flask>=2.3.0",
     "flask-login>=0.6.0",
-    "werkzeug>=2.3.0"
+    "werkzeug>=2.3.0",
+    "cryptography>=41.0.0"
 ]
 
 [project.optional-dependencies]
