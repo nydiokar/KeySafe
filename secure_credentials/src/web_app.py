@@ -80,7 +80,10 @@ def index():
     try:
         kp = get_keepass_handler()
         if not kp.kp:
-            flash('Database not opened. Please check your master password.', 'error')
+            # Database not opened, clear session and redirect to login
+            logout_user()
+            session.clear()
+            flash('Session expired. Please log in again.', 'error')
             return redirect(url_for('login'))
 
         credentials = kp.get_all_credentials()
@@ -127,15 +130,28 @@ def login():
         try:
             kp = get_keepass_handler()
 
-            # Try to open existing database
-            if kp.open_database(master_password):
-                # Store password hash in session for verification
-                session['password_hash'] = generate_password_hash(master_password)
-                login_user(User('admin'))
-                flash('Successfully logged in!', 'success')
-                return redirect(url_for('index'))
+            # Check if database exists
+            if kp.db_path.exists():
+                # Try to open existing database
+                if kp.open_database(master_password):
+                    # Store password hash in session for verification
+                    session['password_hash'] = generate_password_hash(master_password)
+                    login_user(User('admin'))
+                    flash('Successfully logged in!', 'success')
+                    return redirect(url_for('index'))
+                else:
+                    flash('Invalid master password.', 'error')
             else:
-                flash('Invalid master password.', 'error')
+                # Create new database for first-time setup
+                logger.info("No database found, creating new one")
+                if kp.create_database(master_password):
+                    # Store password hash in session for verification
+                    session['password_hash'] = generate_password_hash(master_password)
+                    login_user(User('admin'))
+                    flash('Database created and login successful!', 'success')
+                    return redirect(url_for('index'))
+                else:
+                    flash('Failed to create database.', 'error')
 
         except Exception as e:
             logger.exception(f"Login error: {str(e)}")
