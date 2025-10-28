@@ -296,6 +296,32 @@ def search_credentials():
         logger.exception(f"Search error: {str(e)}")
         return jsonify({'error': 'Search failed'}), 500
 
+@app.route('/api/view/<name>', methods=['POST'])
+@login_required
+def api_view_credential(name):
+    """API endpoint for viewing credentials via AJAX."""
+    try:
+        data = request.get_json()
+        credential_password = data.get('password')
+
+        if not credential_password:
+            return jsonify({'success': False, 'message': 'Password is required'}), 400
+
+        kp = get_keepass_handler()
+        credential = kp.get_credential(name, credential_password)
+
+        if credential:
+            return jsonify({
+                'success': True,
+                'credential': credential
+            })
+        else:
+            return jsonify({'success': False, 'message': 'Invalid credential password'}), 403
+
+    except Exception as e:
+        logger.exception(f"API view credential error: {str(e)}")
+        return jsonify({'success': False, 'message': 'An error occurred'}), 500
+
 @app.errorhandler(HTTPException)
 def handle_http_error(error):
     """Handle HTTP errors."""

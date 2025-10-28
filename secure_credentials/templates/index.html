@@ -71,9 +71,9 @@
                                     <td>{{ cred.created_at or 'Unknown' }}</td>
                                     <td>{{ cred.last_accessed or 'Never' }}</td>
                                     <td>
-                                        <a href="{{ url_for('view_credential', name=cred.name) }}" class="btn btn-sm btn-outline-info">
+                                        <button class="btn btn-sm btn-outline-info" onclick="viewCredential('{{ cred.name }}')">
                                             <i class="bi bi-eye"></i> View
-                                        </a>
+                                        </button>
                                         <a href="{{ url_for('edit_credential', name=cred.name) }}" class="btn btn-sm btn-outline-warning">
                                             <i class="bi bi-pencil"></i> Edit
                                         </a>
@@ -87,9 +87,9 @@
                                     <td>{{ cred.created_at or 'Unknown' }}</td>
                                     <td>{{ cred.last_accessed or 'Never' }}</td>
                                     <td>
-                                        <a href="{{ url_for('view_credential', name=cred.name) }}" class="btn btn-sm btn-outline-info">
+                                        <button class="btn btn-sm btn-outline-info" onclick="viewCredential('{{ cred.name }}')">
                                             <i class="bi bi-eye"></i> View
-                                        </a>
+                                        </button>
                                         <a href="{{ url_for('edit_credential', name=cred.name) }}" class="btn btn-sm btn-outline-warning">
                                             <i class="bi bi-pencil"></i> Edit
                                         </a>
@@ -103,9 +103,9 @@
                                     <td>{{ cred.created_at or 'Unknown' }}</td>
                                     <td>{{ cred.last_accessed or 'Never' }}</td>
                                     <td>
-                                        <a href="{{ url_for('view_credential', name=cred.name) }}" class="btn btn-sm btn-outline-info">
+                                        <button class="btn btn-sm btn-outline-info" onclick="viewCredential('{{ cred.name }}')">
                                             <i class="bi bi-eye"></i> View
-                                        </a>
+                                        </button>
                                         <a href="{{ url_for('edit_credential', name=cred.name) }}" class="btn btn-sm btn-outline-warning">
                                             <i class="bi bi-pencil"></i> Edit
                                         </a>
@@ -136,9 +136,9 @@
                                     <td>{{ cred.created_at or 'Unknown' }}</td>
                                     <td>{{ cred.last_accessed or 'Never' }}</td>
                                     <td>
-                                        <a href="{{ url_for('view_credential', name=cred.name) }}" class="btn btn-sm btn-outline-info">
+                                        <button class="btn btn-sm btn-outline-info" onclick="viewCredential('{{ cred.name }}')">
                                             <i class="bi bi-eye"></i> View
-                                        </a>
+                                        </button>
                                         <a href="{{ url_for('edit_credential', name=cred.name) }}" class="btn btn-sm btn-outline-warning">
                                             <i class="bi bi-pencil"></i> Edit
                                         </a>
@@ -176,9 +176,9 @@
                                     <td>{{ cred.created_at or 'Unknown' }}</td>
                                     <td>{{ cred.last_accessed or 'Never' }}</td>
                                     <td>
-                                        <a href="{{ url_for('view_credential', name=cred.name) }}" class="btn btn-sm btn-outline-info">
+                                        <button class="btn btn-sm btn-outline-info" onclick="viewCredential('{{ cred.name }}')">
                                             <i class="bi bi-eye"></i> View
-                                        </a>
+                                        </button>
                                         <a href="{{ url_for('edit_credential', name=cred.name) }}" class="btn btn-sm btn-outline-warning">
                                             <i class="bi bi-pencil"></i> Edit
                                         </a>
@@ -216,9 +216,9 @@
                                     <td>{{ cred.created_at or 'Unknown' }}</td>
                                     <td>{{ cred.last_accessed or 'Never' }}</td>
                                     <td>
-                                        <a href="{{ url_for('view_credential', name=cred.name) }}" class="btn btn-sm btn-outline-info">
+                                        <button class="btn btn-sm btn-outline-info" onclick="viewCredential('{{ cred.name }}')">
                                             <i class="bi bi-eye"></i> View
-                                        </a>
+                                        </button>
                                         <a href="{{ url_for('edit_credential', name=cred.name) }}" class="btn btn-sm btn-outline-warning">
                                             <i class="bi bi-pencil"></i> Edit
                                         </a>
@@ -240,6 +240,95 @@
         </div>
     </div>
 </div>
+
+<!-- View Credential Modal -->
+<div class="modal fade" id="viewCredentialModal" tabindex="-1" aria-labelledby="viewCredentialModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="viewCredentialModalLabel">
+                    <i class="bi bi-eye"></i> View Credential
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Password Input Step -->
+                <div id="passwordStep">
+                    <div class="alert alert-info">
+                        <i class="bi bi-lock"></i> This credential is protected by an individual password.
+                    </div>
+                    <div class="mb-3">
+                        <label for="credentialPassword" class="form-label">
+                            <i class="bi bi-key"></i> Credential Password
+                        </label>
+                        <input type="password"
+                               class="form-control"
+                               id="credentialPassword"
+                               placeholder="Enter the password for this specific credential">
+                    </div>
+                    <div id="modalError" class="alert alert-danger" style="display: none;"></div>
+                </div>
+
+                <!-- Credential Display Step -->
+                <div id="viewStep" style="display: none;">
+                    <div class="alert alert-success">
+                        <i class="bi bi-check-circle"></i> Credential unlocked successfully!
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Credential Details</h6>
+                            <table class="table table-sm">
+                                <tr>
+                                    <td><strong>Name:</strong></td>
+                                    <td id="viewCredentialName"></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Type:</strong></td>
+                                    <td>
+                                        <span class="badge bg-primary" id="viewCredentialType"></span>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Actions</h6>
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-success" onclick="copyCredentialToClipboard()">
+                                    <i class="bi bi-clipboard"></i> Copy to Clipboard
+                                </button>
+                                <button class="btn btn-warning" onclick="editCredentialFromModal()">
+                                    <i class="bi bi-pencil"></i> Edit Credential
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <h6>Credential Value</h6>
+                        <div class="input-group">
+                            <input type="password" class="form-control" id="viewCredentialValueDisplay" readonly>
+                            <button class="btn btn-outline-secondary" type="button" onclick="toggleCredentialVisibility()">
+                                <i class="bi bi-eye"></i> Show/Hide
+                            </button>
+                        </div>
+                        <div class="form-text text-muted">
+                            The actual credential value is hidden for security.
+                        </div>
+                        <!-- Hidden element to store actual credential value -->
+                        <div id="viewCredentialValue" style="display: none;"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" id="modalFooter">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle"></i> Close
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -253,6 +342,140 @@ document.getElementById('searchInput').addEventListener('input', function() {
         const text = row.textContent.toLowerCase();
         row.style.display = text.includes(query) ? '' : 'none';
     });
+});
+
+// View credential modal functionality
+let currentCredentialName = '';
+
+function viewCredential(name) {
+    currentCredentialName = name;
+
+    // Reset modal state
+    document.getElementById('credentialPassword').value = '';
+    document.getElementById('passwordStep').style.display = 'block';
+    document.getElementById('viewStep').style.display = 'none';
+    document.getElementById('modalError').style.display = 'none';
+
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('viewCredentialModal'));
+    modal.show();
+}
+
+function submitCredentialPassword() {
+    const password = document.getElementById('credentialPassword').value;
+    const errorDiv = document.getElementById('modalError');
+
+    if (!password) {
+        errorDiv.textContent = 'Please enter the credential password.';
+        errorDiv.style.display = 'block';
+        return;
+    }
+
+    // Show loading state
+    const submitBtn = document.querySelector('#passwordStep .btn-primary');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Verifying...';
+    submitBtn.disabled = true;
+
+    // Send AJAX request to verify password and get credential
+    fetch(`/api/view/${currentCredentialName}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ password: password })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show credential details
+            document.getElementById('viewCredentialName').textContent = data.credential.name;
+
+            // Set type badge with appropriate color
+            const typeElement = document.getElementById('viewCredentialType');
+            const credentialType = data.credential.type;
+            typeElement.textContent = credentialType;
+
+            // Remove existing badge classes
+            typeElement.className = 'badge';
+            // Add appropriate badge class
+            if (credentialType === 'password') {
+                typeElement.classList.add('bg-primary');
+            } else if (credentialType === 'api_key') {
+                typeElement.classList.add('bg-success');
+            } else {
+                typeElement.classList.add('bg-secondary');
+            }
+
+            // Store the actual value in a hidden element for security
+            const hiddenValue = document.getElementById('viewCredentialValue');
+            hiddenValue.textContent = data.credential.value;
+
+            // Initialize the display input with dots
+            const displayInput = document.getElementById('viewCredentialValueDisplay');
+            displayInput.value = '•'.repeat(data.credential.value.length);
+            displayInput.type = 'password';
+
+            document.getElementById('passwordStep').style.display = 'none';
+            document.getElementById('viewStep').style.display = 'block';
+            errorDiv.style.display = 'none';
+        } else {
+            errorDiv.textContent = data.message || 'Invalid password.';
+            errorDiv.style.display = 'block';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        errorDiv.textContent = 'An error occurred. Please try again.';
+        errorDiv.style.display = 'block';
+    })
+    .finally(() => {
+        // Reset button state
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    });
+}
+
+function copyCredentialToClipboard() {
+    const value = document.getElementById('viewCredentialValue').textContent;
+    navigator.clipboard.writeText(value).then(() => {
+        const copyBtn = document.querySelector('#viewStep .btn-success');
+        const originalText = copyBtn.innerHTML;
+        copyBtn.innerHTML = '<i class="bi bi-check"></i> Copied!';
+        setTimeout(() => {
+            copyBtn.innerHTML = originalText;
+        }, 2000);
+    }).catch(err => {
+        console.error('Failed to copy: ', err);
+        alert('Failed to copy to clipboard');
+    });
+}
+
+function editCredentialFromModal() {
+    // Close modal and redirect to edit page
+    const modal = bootstrap.Modal.getInstance(document.getElementById('viewCredentialModal'));
+    modal.hide();
+    window.location.href = `/edit/${currentCredentialName}`;
+}
+
+function toggleCredentialVisibility() {
+    const displayInput = document.getElementById('viewCredentialValueDisplay');
+    const actualValue = document.getElementById('viewCredentialValue').textContent;
+
+    if (displayInput.type === 'password') {
+        displayInput.type = 'text';
+        displayInput.value = actualValue;
+    } else {
+        displayInput.type = 'password';
+        displayInput.value = '•'.repeat(actualValue.length);
+    }
+}
+
+// Handle Enter key in password field
+document.getElementById('credentialPassword').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        submitCredentialPassword();
+    }
 });
 </script>
 {% endblock %}
