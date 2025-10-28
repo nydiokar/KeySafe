@@ -1,15 +1,14 @@
 import datetime
+import json
 import os
 import re
 from pathlib import Path
+from typing import Any
 
 try:
     from . import hash_utility as pwl
 except ImportError:
-    import hash_utility as pwl
-
-import json
-from typing import Any
+    import hash_utility as pwl  # type: ignore[no-redef]
 
 # Windows-specific imports
 WINDOWS_SECURITY_AVAILABLE = False
@@ -25,13 +24,13 @@ except ImportError:
         DACL_SECURITY_INFORMATION: int = 4
 
         def ACL(self) -> Any:
-            pass
+            return None
 
         def LookupAccountName(self, domain: str, username: str) -> tuple[Any, Any, Any]:
-            pass
+            return (None, None, None)
 
         def GetFileSecurity(self, path: str, info_type: int) -> Any:
-            pass
+            return None
 
         def SetFileSecurity(self, path: str, info_type: int, security: Any) -> None:
             pass
@@ -141,8 +140,8 @@ class CredentialManager:
                     f"Warning: Could not set file permissions: {str(e)}"
                 )
 
-    def get_credential_file_path(self):
-        """Returns the path to the credential file."""
+    def get_test_credential_file_path(self):
+        """Returns the path to the test credential file."""
         # Create a test directory for development
         test_dir = Path.home() / "creds_test"
         test_dir.mkdir(exist_ok=True)

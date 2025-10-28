@@ -7,6 +7,7 @@ import os
 import secrets
 from base64 import b64decode, b64encode
 from pathlib import Path
+from typing import Optional
 
 from cryptography.exceptions import InvalidKey
 from cryptography.hazmat.primitives import hashes
@@ -381,7 +382,7 @@ class SecurityManager:
             self.logger.error(f"Installation verification failed: {str(e)}")
             return True  # Changed to True to allow running even if verification fails
 
-    def derive_key(self, password: str, salt: bytes = None) -> tuple:
+    def derive_key(self, password: str, salt: Optional[bytes] = None) -> tuple:
         """Derive a key from password using PBKDF2."""
         if salt is None:
             salt = secrets.token_bytes(self.SALT_LENGTH)
@@ -424,7 +425,7 @@ class SecurityManager:
             self.logger.error(f"Encryption failed: {str(e)}")
             raise
 
-    def decrypt_value(self, encrypted_str: str, password: str) -> str:
+    def decrypt_value(self, encrypted_str: str, password: str) -> Optional[str]:
         """Decrypt a value using AES-GCM with derived key."""
         try:
             # Parse the encrypted data
