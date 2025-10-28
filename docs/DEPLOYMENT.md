@@ -403,7 +403,7 @@ services:
 - name: web
   source_dir: /
   github:
-    repo: yourusername/secure_credentials
+    repo: nydiokar/KeySafe
     branch: main
   run_command: gunicorn secure_credentials.src.web_app:app
   environment_slug: python

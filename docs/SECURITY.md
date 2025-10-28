@@ -666,7 +666,7 @@ EOF
 If you discover a security vulnerability, please:
 
 1. **Do not publicly disclose** the vulnerability
-2. **Email security details** to: [security email or create issue]
+2. **Email security details** to: nydiokar@gmail.com
 3. **Provide sufficient information** to reproduce the issue
 4. **Allow reasonable time** for the issue to be fixed
 5. **Do not access or modify** other users' data
