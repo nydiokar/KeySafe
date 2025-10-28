@@ -228,6 +228,24 @@ chmod +x setup_security.sh
 ./setup_security.sh all         # Run complete setup
 ```
 
+### Development vs Production Server
+
+#### ⚠️ Development Server Warning
+
+When you run the web server, you'll see this message:
+```
+WARNING: This is a development server. Do not use it in a production deployment.
+Use a production WSGI server instead.
+```
+
+**What this means:**
+- Flask's built-in server (Werkzeug) is designed for **development and testing only**
+- It lacks security features, performance optimizations, and production reliability
+- It's single-threaded and can't handle multiple concurrent users well
+- **Never use it for production deployments**
+
+**Why you see this:** Flask shows this warning to prevent accidental production use of the development server.
+
 #### Production Deployment
 
 For production use, deploy behind a proper web server:
@@ -254,6 +272,18 @@ server {
     }
 }
 ```
+
+**Production Benefits:**
+- **Security:** Proper request handling, headers, and SSL termination
+- **Performance:** Multi-worker, async processing
+- **Reliability:** Process monitoring, automatic restarts
+- **Load Balancing:** Handle multiple concurrent users
+- **Logging:** Production-grade logging and monitoring
+
+**Documentation Reference:**
+- [Flask Deployment Options](https://flask.palletsprojects.com/en/3.0.x/deploying/)
+- [Gunicorn Documentation](https://docs.gunicorn.org/en/stable/)
+- [nginx Reverse Proxy](https://docs.nginx.com/nginx/admin-guide/web-server/reverse-proxy/)
 
 ### Web Interface Features
 

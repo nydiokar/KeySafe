@@ -41,7 +41,8 @@ class User(UserMixin):
         self.id = user_id
 
 # Flask application
-app = Flask(__name__)
+template_dir = Path(__file__).parent.parent / 'templates'
+app = Flask(__name__, template_folder=str(template_dir))
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 app.config['SESSION_TYPE'] = 'filesystem'
 
