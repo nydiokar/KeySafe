@@ -58,4 +58,9 @@ desktop.ini
 
 # Logs
 *.log
-logs/ 
+logs/
+
+# API Configuration
+.env
+*.env
+!.env.example 

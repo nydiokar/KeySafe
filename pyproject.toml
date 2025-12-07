@@ -18,7 +18,10 @@ dependencies = [
     "packaging>=24.2",
     "requests>=2.32.3",
     "olefile>=0.47",
-    "pywin32>=306"
+    "pywin32>=306",
+    "python-dotenv>=1.0.0",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0"
 ]
 
 [project.optional-dependencies]
