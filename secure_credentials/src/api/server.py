@@ -77,7 +77,8 @@ class VaultState:
             return True
 
         except Exception as e:
-            print(f"❌ Failed to unlock vault: {e}")
+            # Don't print exception details that might contain sensitive info
+            print(f"❌ Failed to unlock vault")
             return False
 
     def lock(self):
@@ -248,7 +249,8 @@ async def list_credentials():
         return result
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # Don't expose internal error details that might contain sensitive info
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.post("/api/credentials/{name}", response_model=Credential)
@@ -277,7 +279,8 @@ async def get_credential(name: str, request: RetrieveRequest):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # Don't expose internal error details that might contain sensitive info
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 # ==================== WEB UI (INLINE HTML) ====================
