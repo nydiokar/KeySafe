@@ -234,7 +234,6 @@ class KeePassHandler:
             # Verify credential password
             notes = entry.notes or ""
             stored_hash = None
-            legacy_plain = None
             for line in notes.splitlines():
                 parts = line.split(":", 1)
                 if len(parts) != 2:
@@ -244,37 +243,11 @@ class KeePassHandler:
                 if key == "credential password hash":
                     stored_hash = value
                     break
-                # Backward compatibility: check for old plaintext format
-                elif key == "credential password" and not stored_hash:
-                    legacy_plain = value
-
-            if stored_hash:
-                if not self._verify_credential_password(credential_password, stored_hash):
-                    if legacy_plain is not None and credential_password == legacy_plain:
-                        # Repair bad hash using legacy plaintext
-                        stored_hash = self._hash_credential_password(credential_password)
-                        notes_lines = [ln for ln in notes.splitlines() if ln.strip() and ln.split(":", 1)[0].strip().lower() != "credential password"]
-                        notes_lines = [ln for ln in notes_lines if ln.split(":", 1)[0].strip().lower() != "credential password hash"]
-                        notes_lines.append(f"Credential Password Hash: {stored_hash}")
-                        entry.notes = '\n'.join(notes_lines)
-                        self.logger.info(f"Repaired credential password hash for entry: {name}")
-                        self.kp.save()
-                    else:
-                        self.logger.warning("Invalid credential password provided")
-                        return None
-            elif legacy_plain is not None:
-                # Require caller to supply the correct legacy plaintext to migrate
-                if credential_password != legacy_plain:
-                    self.logger.warning("Invalid credential password provided")
-                    return None
-                stored_hash = self._hash_credential_password(credential_password)
-                notes_lines = [ln for ln in notes.splitlines() if ln.strip() and ln.split(":", 1)[0].strip().lower() != "credential password"]
-                notes_lines.append(f"Credential Password Hash: {stored_hash}")
-                entry.notes = '\n'.join(notes_lines)
-                self.logger.info(f"Migrated credential password from plaintext to hash for entry: {name}")
-                self.kp.save()
-            else:
+            if not stored_hash:
                 self.logger.warning("No credential password hash found for entry")
+                return None
+            if not self._verify_credential_password(credential_password, stored_hash):
+                self.logger.warning("Invalid credential password provided")
                 return None
 
             # Decrypt the stored value using the credential password
@@ -337,7 +310,6 @@ class KeePassHandler:
             # Verify credential password
             notes = entry.notes or ""
             stored_hash = None
-            legacy_plain = None
             for line in notes.splitlines():
                 parts = line.split(":", 1)
                 if len(parts) != 2:
@@ -347,33 +319,12 @@ class KeePassHandler:
                 if key == "credential password hash":
                     stored_hash = value
                     break
-                # Backward compatibility: check for old plaintext format
-                elif key == "credential password" and not stored_hash:
-                    legacy_plain = value
 
-            if stored_hash:
-                if not self._verify_credential_password(credential_password, stored_hash):
-                    if legacy_plain is not None and credential_password == legacy_plain:
-                        stored_hash = self._hash_credential_password(credential_password)
-                        notes_lines = [ln for ln in notes.splitlines() if ln.strip() and ln.split(":", 1)[0].strip().lower() != "credential password"]
-                        notes_lines = [ln for ln in notes_lines if ln.split(":", 1)[0].strip().lower() != "credential password hash"]
-                        notes_lines.append(f"Credential Password Hash: {stored_hash}")
-                        entry.notes = '\n'.join(notes_lines)
-                        self.logger.info(f"Repaired credential password hash for entry: {old_name}")
-                    else:
-                        self.logger.warning("Invalid credential password provided")
-                        return False
-            elif legacy_plain is not None:
-                if credential_password != legacy_plain:
-                    self.logger.warning("Invalid credential password provided")
-                    return False
-                stored_hash = self._hash_credential_password(credential_password)
-                notes_lines = [ln for ln in notes.splitlines() if ln.strip() and ln.split(":", 1)[0].strip().lower() != "credential password"]
-                notes_lines.append(f"Credential Password Hash: {stored_hash}")
-                entry.notes = '\n'.join(notes_lines)
-                self.logger.info(f"Migrated credential password from plaintext to hash for entry: {old_name}")
-            else:
+            if not stored_hash:
                 self.logger.warning("No credential password hash found for entry")
+                return False
+            if not self._verify_credential_password(credential_password, stored_hash):
+                self.logger.warning("Invalid credential password provided")
                 return False
 
             # Update entry
@@ -390,13 +341,6 @@ class KeePassHandler:
                 if line.startswith("Type:"):
                     new_notes.append(f"Type: {new_type}")
                     type_updated = True
-                elif line.startswith("Credential Password:"):
-                    # Migrate old format to hash if needed
-                    if not stored_hash:
-                        old_password = line.split(":", 1)[1].strip()
-                        stored_hash = self._hash_credential_password(old_password)
-                    new_notes.append(f"Credential Password Hash: {stored_hash}")
-                    hash_updated = True
                 elif line.startswith("Credential Password Hash:"):
                     new_notes.append(line)
                     hash_updated = True
@@ -437,7 +381,6 @@ class KeePassHandler:
             # Verify credential password
             notes = entry.notes or ""
             stored_hash = None
-            legacy_plain = None
             for line in notes.splitlines():
                 parts = line.split(":", 1)
                 if len(parts) != 2:
@@ -447,33 +390,12 @@ class KeePassHandler:
                 if key == "credential password hash":
                     stored_hash = value
                     break
-                # Backward compatibility: check for old plaintext format
-                elif key == "credential password" and not stored_hash:
-                    legacy_plain = value
 
-            if stored_hash:
-                if not self._verify_credential_password(credential_password, stored_hash):
-                    if legacy_plain is not None and credential_password == legacy_plain:
-                        stored_hash = self._hash_credential_password(credential_password)
-                        notes_lines = [ln for ln in notes.splitlines() if ln.strip() and ln.split(":", 1)[0].strip().lower() != "credential password"]
-                        notes_lines = [ln for ln in notes_lines if ln.split(":", 1)[0].strip().lower() != "credential password hash"]
-                        notes_lines.append(f"Credential Password Hash: {stored_hash}")
-                        entry.notes = '\n'.join(notes_lines)
-                        self.logger.info(f"Repaired credential password hash for entry: {name}")
-                    else:
-                        self.logger.warning("Invalid credential password provided")
-                        return False
-            elif legacy_plain is not None:
-                if credential_password != legacy_plain:
-                    self.logger.warning("Invalid credential password provided")
-                    return False
-                stored_hash = self._hash_credential_password(credential_password)
-                notes_lines = [ln for ln in notes.splitlines() if ln.strip() and ln.split(":", 1)[0].strip().lower() != "credential password"]
-                notes_lines.append(f"Credential Password Hash: {stored_hash}")
-                entry.notes = '\n'.join(notes_lines)
-                self.logger.info(f"Migrated credential password from plaintext to hash for entry: {name}")
-            else:
+            if not stored_hash:
                 self.logger.warning("No credential password hash found for entry")
+                return False
+            if not self._verify_credential_password(credential_password, stored_hash):
+                self.logger.warning("Invalid credential password provided")
                 return False
 
             self.kp.delete_entry(entry)
