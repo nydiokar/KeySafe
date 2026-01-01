@@ -77,7 +77,7 @@ jobs:
           echo "No test files found, skipping tests"
         fi
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v5
       with:
         file: ./coverage.xml
         flags: unittests
