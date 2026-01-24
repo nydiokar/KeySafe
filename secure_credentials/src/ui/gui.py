@@ -20,21 +20,21 @@ except ImportError:
     from secure_credentials.src.keepass_backend import KeePassHandler
 
 class CredentialManagerGUI:
-    def __init__(self, security_manager=None):
+    def __init__(self, security_manager=None, vault_path=None):
         # Initialize icon to None first
         self.icon = None
-        
+
         # Store security manager
         self.security_manager = security_manager
         if not self.security_manager:
             raise ValueError("SecurityManager is required")
-        
+
         # Setup logging first for better diagnostics
         self.setup_logging()
         self.logger.info("Initializing CredentialManagerGUI")
-        
-        # Initialize KeePass handler
-        self.keepass = KeePassHandler()
+
+        # Initialize KeePass handler with optional custom vault path
+        self.keepass = KeePassHandler(vault_path=vault_path)
         
         # Initialize root window
         self.root = ttk.Window(themename="darkly")
@@ -67,6 +67,9 @@ class CredentialManagerGUI:
         self.last_activity = datetime.datetime.now()
         self.auto_lock_timeout = 300  # 5 minutes
         self.is_locked = False
+
+        # Visibility tracking
+        self.visibility_needed = False
         
         # Setup UI components with status updates
         self.update_status("Setting up user interface...")

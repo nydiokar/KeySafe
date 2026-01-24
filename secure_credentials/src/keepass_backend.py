@@ -9,16 +9,27 @@ from pykeepass import PyKeePass
 from pykeepass.exceptions import CredentialsError
 from pykeepass import create_database
 import hashlib
+import hmac
 import secrets
 from base64 import b64encode, b64decode
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 
 class KeePassHandler:
-    def __init__(self):
-        self.db_path = Path(os.path.expanduser("~")) / ".secure_credentials" / "vault.kdbx"
+    def __init__(self, vault_path: Optional[str] = None):
+        # Allow custom vault path via parameter or environment variable
+        if vault_path:
+            self.db_path = Path(vault_path)
+            print(f"[KEEPASS] Using vault from parameter: {self.db_path}")
+        elif os.getenv("VAULT_PATH"):
+            self.db_path = Path(os.getenv("VAULT_PATH"))
+            print(f"[KEEPASS] Using vault from VAULT_PATH env: {self.db_path}")
+        else:
+            self.db_path = Path(os.path.expanduser("~")) / ".secure_credentials" / "vault.kdbx"
+            print(f"[KEEPASS] Using default vault: {self.db_path}")
         self.kp = None
         self.setup_logging()
+        self.logger.info(f"KeePassHandler initialized with vault: {self.db_path}")
 
     def setup_logging(self):
         """Setup logging for KeePass operations."""
@@ -139,9 +150,9 @@ class KeePassHandler:
             
             # Hash the provided password with the same salt
             key = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, 100000)
-            
+
             # Constant-time comparison to prevent timing attacks
-            return hashlib.compare_digest(key, stored_key)
+            return hmac.compare_digest(key, stored_key)
         except Exception:
             return False
 
@@ -174,6 +185,7 @@ class KeePassHandler:
         Returns None on failure; if value is not prefixed with ENC1:, returns it as-is.
         """
         if not stored_value.startswith("ENC1:"):
+            self.logger.warning(f"Stored value does not have ENC1: prefix, returning as-is")
             return stored_value
 
         try:
@@ -184,8 +196,10 @@ class KeePassHandler:
             key = self._derive_encryption_key(credential_password, salt)
             aesgcm = AESGCM(key)
             plaintext = aesgcm.decrypt(nonce, ciphertext, None)
+            self.logger.info("Successfully decrypted credential value")
             return plaintext.decode('utf-8')
-        except Exception:
+        except Exception as e:
+            self.logger.error(f"Failed to decrypt value: {type(e).__name__}: {str(e)}")
             return None
 
     def add_credential(self, name: str, value: str, cred_type: str, credential_password: str) -> bool:
@@ -234,17 +248,22 @@ class KeePassHandler:
             # Verify credential password
             notes = entry.notes or ""
             stored_hash = None
+            self.logger.info(f"Parsing notes for entry '{name}', notes length: {len(notes)}")
             for line in notes.splitlines():
                 parts = line.split(":", 1)
                 if len(parts) != 2:
+                    self.logger.debug(f"Skipping line (not key:value): {line[:50]}")
                     continue
                 key = parts[0].strip().lower()
                 value = parts[1].strip()
+                self.logger.debug(f"Parsed key: '{key}'")
                 if key == "credential password hash":
                     stored_hash = value
+                    self.logger.info(f"Found credential password hash (length: {len(value)})")
                     break
             if not stored_hash:
-                self.logger.warning("No credential password hash found for entry")
+                self.logger.warning(f"No credential password hash found for entry '{name}'")
+                self.logger.warning(f"Full notes content:\n{notes}")
                 return None
             if not self._verify_credential_password(credential_password, stored_hash):
                 self.logger.warning("Invalid credential password provided")

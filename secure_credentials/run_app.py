@@ -3,10 +3,14 @@
 Run script for Secure Credential Manager with different modes for debugging.
 
 Usage:
-  python run_app.py                # Normal mode
-  python run_app.py debug          # Debug mode with verbose logging
-  python run_app.py test_window    # Test just the window functionality
-  python run_app.py direct_gui     # Run GUI directly without launcher
+  python run_app.py                           # Normal mode
+  python run_app.py debug                     # Debug mode with verbose logging
+  python run_app.py test_window               # Test just the window functionality
+  python run_app.py direct_gui                # Run GUI directly without launcher
+  python run_app.py --vault=/path/to/vault.kdbx  # Use custom vault file
+
+Environment Variables:
+  VAULT_PATH=/path/to/vault.kdbx              # Set custom vault path
 """
 
 import sys
@@ -28,27 +32,29 @@ logging.basicConfig(
 )
 logger = logging.getLogger("run_app")
 
-def run_normal():
+def run_normal(vault_path=None):
     """Run the app in normal mode through the launcher."""
     logger.info("Running app in normal mode")
-    
+    if vault_path:
+        logger.info(f"Using custom vault path: {vault_path}")
+
     from secure_credentials.src.security import SecurityManager
     from secure_credentials.src.ui.gui import CredentialManagerGUI
-    
+
     # Initialize security manager
     security_manager = SecurityManager()
-    
+
     # Verify installation integrity
     app_dir = Path(__file__).parent.resolve()
     if not security_manager.verify_installation(app_dir):
         logger.error("Security Error: Installation verification failed")
         sys.exit(1)
-        
+
     try:
         # Create the application with security manager
         logger.info("Creating GUI application...")
-        app = CredentialManagerGUI(security_manager=security_manager)
-        
+        app = CredentialManagerGUI(security_manager=security_manager, vault_path=vault_path)
+
         # Run the application
         logger.info("Running main application loop...")
         app.run()
@@ -56,26 +62,28 @@ def run_normal():
         logger.exception(f"Error in run_normal: {str(e)}")
         sys.exit(1)
 
-def run_debug():
+def run_debug(vault_path=None):
     """Run with extra debug output and window forcing."""
     logger.info("Running app in DEBUG mode with enhanced visibility checks")
-    
+    if vault_path:
+        logger.info(f"Using custom vault path: {vault_path}")
+
     from secure_credentials.src.security import SecurityManager
     from secure_credentials.src.ui.gui import CredentialManagerGUI
-    
+
     # Initialize security manager
     security_manager = SecurityManager()
-    
+
     # Verify installation integrity
     app_dir = Path(__file__).parent.resolve()
     if not security_manager.verify_installation(app_dir):
         logger.error("Security Error: Installation verification failed")
         sys.exit(1)
-        
+
     try:
         # Create the application with security manager
         logger.info("Creating GUI application in debug mode...")
-        app = CredentialManagerGUI(security_manager=security_manager)
+        app = CredentialManagerGUI(security_manager=security_manager, vault_path=vault_path)
         
         # Explicit window showing with aggressive approach
         def aggressive_show():
@@ -162,30 +170,41 @@ def test_window():
         logger.exception(f"Error in test_window: {str(e)}")
         sys.exit(1)
 
-def run_direct_gui():
+def run_direct_gui(vault_path=None):
     """Run the GUI directly without going through the launcher."""
     logger.info("Running GUI directly (bypassing launcher)")
-    
+    if vault_path:
+        logger.info(f"Using custom vault path: {vault_path}")
+
     from secure_credentials.src.ui.gui import CredentialManagerGUI
-    
+
     try:
-        app = CredentialManagerGUI()
+        app = CredentialManagerGUI(vault_path=vault_path)
         app.run()
     except Exception as e:
         logger.exception(f"Error in run_direct_gui: {str(e)}")
         sys.exit(1)
 
 if __name__ == "__main__":
-    # Get mode from command line argument
-    mode = sys.argv[1] if len(sys.argv) > 1 else "normal"
-    
+    # Parse command line arguments
+    vault_path = None
+    mode = "normal"
+
+    for arg in sys.argv[1:]:
+        if arg.startswith("--vault="):
+            vault_path = arg.split("=", 1)[1]
+        elif arg in ["debug", "test_window", "direct_gui"]:
+            mode = arg
+
     logger.info(f"Starting app in {mode} mode")
-    
+    if vault_path:
+        logger.info(f"Using custom vault: {vault_path}")
+
     if mode == "debug":
-        run_debug()
+        run_debug(vault_path)
     elif mode == "test_window":
         test_window()
     elif mode == "direct_gui":
-        run_direct_gui()
+        run_direct_gui(vault_path)
     else:
-        run_normal() 
+        run_normal(vault_path) 
