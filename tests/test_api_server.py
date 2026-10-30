@@ -135,3 +135,74 @@ def test_security_headers_and_no_openapi(client: TestClient) -> None:
 def test_input_limits(client: TestClient) -> None:
     assert client.post("/api/unlock", json={"master_password": "x" * 2000}).status_code == 422
     assert client.post("/api/unlock", json={"master_password": ""}).status_code == 422
+
+
+def test_cross_origin_post_rejected_same_origin_allowed(client: TestClient) -> None:
+    body = {"master_password": MASTER}
+    evil = client.post("/api/unlock", json=body, headers={"Origin": "http://evil.example"})
+    assert evil.status_code == 403
+    assert client.get("/api/status").json()["locked"] is True
+    same = client.post("/api/unlock", json=body, headers={"Origin": "http://testserver"})
+    assert same.status_code == 200
+    assert client.post("/api/lock").status_code == 200  # no Origin header: allowed
+
+
+def test_audit_log_records_events_without_secrets(client: TestClient, tmp_path: Path) -> None:
+    from secure_credentials.src.api.server import configure_audit_log, logger
+
+    log_file: Path = tmp_path / "logs" / "api.log"
+    handler = configure_audit_log(log_file)
+    try:
+        unlock(client, "super-secret-wrong-guess")
+        unlock(client)
+        client.post("/api/credentials/retrieve", json={"name": CRED_NAME, "credential_password": "guess-xyz"})
+    finally:
+        handler.flush()
+        logger.removeHandler(handler)
+        handler.close()
+    text: str = log_file.read_text(encoding="utf-8")
+    assert "Failed unlock attempt" in text and "Vault unlocked" in text and "Failed credential retrieval" in text
+    for secret in ("super-secret-wrong-guess", MASTER, "guess-xyz", CRED_PW, CRED_NAME):
+        assert secret not in text
+
+
+def test_replaced_vault_file_is_seen_after_relock(tmp_path: Path, clock: FakeClock) -> None:
+    """Sync model: a vault file copied over the server's copy is picked up on the next unlock."""
+    import shutil
+
+    def build(path: Path, cred: str) -> None:
+        h = KeePassHandler(str(path))
+        assert h.create_database(MASTER) and h.open_database(MASTER)
+        assert h.add_credential(cred, "v", "api", CRED_PW)
+
+    live: Path = tmp_path / "live.kdbx"
+    updated: Path = tmp_path / "updated.kdbx"
+    build(live, "first")
+    build(updated, "second")
+    with TestClient(create_app(Settings(vault_path=str(live), auto_lock_seconds=60), clock)) as c:
+        assert unlock(c).status_code == 200
+        assert [x["name"] for x in c.get("/api/credentials").json()] == ["first"]
+        assert c.post("/api/lock").status_code == 200
+        shutil.copyfile(updated, live)
+        assert unlock(c).status_code == 200
+        assert [x["name"] for x in c.get("/api/credentials").json()] == ["second"]
+
+
+def test_retrieve_does_not_modify_vault_file(client: TestClient, vault_file: Path) -> None:
+    import hashlib
+
+    before: str = hashlib.sha256(vault_file.read_bytes()).hexdigest()
+    unlock(client)
+    ok = client.post("/api/credentials/retrieve", json={"name": CRED_NAME, "credential_password": CRED_PW})
+    assert ok.status_code == 200
+    assert hashlib.sha256(vault_file.read_bytes()).hexdigest() == before
+
+
+def test_oversized_body_rejected_and_headers_on_rejections(client: TestClient) -> None:
+    big = client.post("/api/unlock", content=b"x" * 20_000, headers={"Content-Type": "application/json"})
+    assert big.status_code == 413
+    evil = client.post(
+        "/api/unlock", json={"master_password": MASTER}, headers={"Origin": "http://evil.example"}
+    )
+    assert evil.status_code == 403
+    assert "frame-ancestors" in evil.headers["content-security-policy"]

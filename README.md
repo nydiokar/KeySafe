@@ -24,27 +24,27 @@ A secure and user-friendly credential manager with GUI interface, built with Pyt
 ### Option 1b: GUI + API via pip (any release)
 
 ```powershell
-python -m venv .venv; .\.venv\Scripts\Activate.ps1; pip install https://github.com/nydiokar/KeySafe/releases/latest/download/<wheel-filename>.whl
+gh release download --repo nydiokar/KeySafe --pattern "*.whl"; python -m venv .venv; .\.venv\Scripts\Activate.ps1; pip install (Get-ChildItem secure_credentials-*.whl).FullName
 ```
 
 - GUI: `python -m secure_credentials.run_app`
-- API: set `BIND_HOST` (private-network address; default loopback) and optionally `API_PORT`, `VAULT_PATH` in the environment or a `.env`, run `secure-credentials-api`, then unlock in the browser. See `docs/FASTAPI_ROADMAP.md`
+- API: set `BIND_HOST` (private-network address; default loopback) and optionally `API_PORT`, `VAULT_PATH` in the environment or a `.env`, run `secure-credentials-api`, then unlock in the browser. See `docs/QUICKSTART.md`.
 
 ### Option 2: From Source
 
 1. Ensure you have Python 3.10 or newer installed
 2. Clone this repository:
    ```bash
-   git clone https://github.com/yourusername/secure_credentials.git
-   cd secure_credentials
+   git clone https://github.com/nydiokar/KeySafe.git
+   cd KeySafe
    ```
 3. Create and activate a virtual environment:
    ```bash
-   python -m venv venv
+   python -m venv .venv
    # On Windows:
-   .\venv\Scripts\activate
+   .\.venv\Scripts\activate
    # On Linux/Mac:
-   source venv/bin/activate
+   source .venv/bin/activate
    ```
 4. Install the package:
    ```bash
@@ -97,10 +97,17 @@ To create a standalone executable:
 
 2. Build the executable:
    ```bash
-   pyinstaller --name SecureCredentialManager --onefile --noconsole --icon secure_credentials/assets/icon.ico --clean secure_credentials/run_app.py
+   pyinstaller secure_credentials.spec --noconfirm
    ```
 
 The executable will be created in the `dist` directory.
+
+## API server (private network)
+
+Run the vault as a read-only web service reachable only over your private network (Tailscale,
+WireGuard, ZeroTier, Yggdrasil, LAN): see `docs/QUICKSTART.md`. Vault placement and backups:
+`docs/VAULT_SYNC.md`. Running as a service: `docs/SERVICE.md`. Roadmap: `docs/FASTAPI_ROADMAP.md`.
+Project history and design decisions: `docs/PROJECT_HISTORY.md`.
 
 ## Releases and dependency updates
 

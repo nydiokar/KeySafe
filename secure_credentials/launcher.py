@@ -32,7 +32,7 @@ def main():
     try:
         # Create the application
         logger.info("Creating GUI application...")
-        app = CredentialManagerGUI()
+        app = CredentialManagerGUI(security_manager=security_manager)
         
         # Explicitly trigger the show_main_window after a slight delay
         # This helps overcome Windows focus management issues

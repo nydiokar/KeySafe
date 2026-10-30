@@ -21,6 +21,8 @@ jobs:
           cache: pip
           cache-dependency-path: pyproject.toml
       - run: python -m pip install -e ".[dev]"
+      - run: python -m ruff check
+      - run: python -m mypy
       - run: python -m pytest -q tests
 
   audit:
@@ -32,3 +34,43 @@ jobs:
           python-version: "3.12"
       - run: python -m pip install -U pip && python -m pip install -e ".[dev]" pip-audit
       - run: python -m pip_audit --skip-editable
+
+  wheel-smoke:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build wheel and install into a clean venv
+        shell: pwsh
+        run: |
+          python -m pip install build
+          python -m build --wheel --outdir wheelhouse
+          python -m venv smoke-venv
+          $wheel = (Get-ChildItem wheelhouse/*.whl).FullName
+          & smoke-venv/Scripts/python.exe -m pip install $wheel
+      - name: Start the installed API and check health
+        shell: pwsh
+        env:
+          BIND_HOST: 127.0.0.1
+          API_PORT: "18080"
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP "smoke-vault"
+          New-Item -ItemType Directory -Force $dir | Out-Null
+          $env:VAULT_PATH = Join-Path $dir "vault.kdbx"
+          & smoke-venv/Scripts/python.exe -c "from secure_credentials.src.keepass_backend import KeePassHandler as K; import os; h=K(os.environ['VAULT_PATH']); assert h.create_database('smoke-master-1')"
+          $p = Start-Process -FilePath smoke-venv/Scripts/secure-credentials-api.exe -PassThru -WindowStyle Hidden
+          try {
+            $ok = $false
+            foreach ($i in 1..30) {
+              Start-Sleep -Seconds 1
+              try { if ((Invoke-RestMethod http://127.0.0.1:18080/api/health).status -eq "ok") { $ok = $true; break } } catch {}
+            }
+            if (-not $ok) { throw "API did not become healthy" }
+            $r = Invoke-WebRequest http://127.0.0.1:18080/ -UseBasicParsing
+            if ($r.Headers["Content-Security-Policy"] -notmatch "frame-ancestors") { throw "CSP header missing" }
+            if ((Invoke-WebRequest http://127.0.0.1:18080/static/app.js -UseBasicParsing).StatusCode -ne 200) { throw "static asset missing from wheel" }
+          } finally {
+            Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+          }

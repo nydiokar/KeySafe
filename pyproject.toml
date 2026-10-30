@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "secure_credentials"
-version = "1.2.0"
+version = "1.3.0"
 description = "A secure credential manager with GUI interface"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -30,7 +30,9 @@ dev = [
     "pytest>=9.2.0",
     "httpx>=0.28.1",
     "black>=26.10.1",
-    "pyinstaller>=6.22.3"
+    "pyinstaller>=6.22.3",
+    "ruff>=0.15.0",
+    "mypy>=1.20.0"
 ]
 
 [project.scripts]
@@ -38,3 +40,18 @@ secure-credentials-api = "secure_credentials.src.api.server:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["secure_credentials"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+include = ["secure_credentials/src/api/**/*.py", "tests/**/*.py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+ignore_missing_imports = true
+follow_imports = "silent"
+files = ["secure_credentials/src/api"]

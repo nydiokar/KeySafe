@@ -3,6 +3,9 @@ let currentCredential = null;
 let currentPassword = null;
 let statusCheckInterval = null;
 let currentSearchQuery = '';
+let revealTimer = null;
+let viewUnlocked = false;
+const REVEAL_SECONDS = 30;
 
 // Check vault status on load
 async function checkVaultStatus() {
@@ -11,9 +14,11 @@ async function checkVaultStatus() {
         const status = await response.json();
 
         if (status.locked) {
-            showLockedScreen();
+            if (viewUnlocked) showLockedScreen();
         } else {
-            showMainContent();
+            // Only load the list on the locked -> unlocked transition: calling the
+            // credentials endpoint on every poll would keep the session alive forever.
+            if (!viewUnlocked) showMainContent();
             updateStatusBar(status);
         }
     } catch (error) {
@@ -42,6 +47,10 @@ function updateStatusBar(status) {
 
 // Show locked screen
 function showLockedScreen() {
+    viewUnlocked = false;
+    closeModal();
+    credentials = [];
+    document.getElementById('credentialList').replaceChildren();
     document.getElementById('lockedScreen').style.display = 'block';
     document.getElementById('mainContent').style.display = 'none';
 
@@ -53,6 +62,7 @@ function showLockedScreen() {
 
 // Show main content
 function showMainContent() {
+    viewUnlocked = true;
     document.getElementById('lockedScreen').style.display = 'none';
     document.getElementById('mainContent').style.display = 'block';
 
@@ -92,8 +102,9 @@ async function unlockVault() {
         document.getElementById('masterPassword').value = '';
         errorEl.textContent = '';
 
-        // Show main content
+        // Show main content and the lock timer
         showMainContent();
+        checkVaultStatus();
 
     } catch (error) {
         errorEl.textContent = 'Failed to unlock vault';
@@ -199,7 +210,11 @@ function openModal(name, type) {
 
 // Close modal
 function closeModal() {
+    clearTimeout(revealTimer);
+    revealTimer = null;
     document.getElementById('modal').classList.remove('show');
+    document.getElementById('passwordValue').textContent = '';
+    document.getElementById('credPassword').value = '';
     currentPassword = null;
 }
 
@@ -239,6 +254,10 @@ async function retrievePassword() {
         document.getElementById('passwordValue').textContent = currentPassword;
         document.getElementById('passwordPrompt').style.display = 'none';
         document.getElementById('passwordDisplay').style.display = 'block';
+
+        // Hide the revealed value again after a short time
+        clearTimeout(revealTimer);
+        revealTimer = setTimeout(closeModal, REVEAL_SECONDS * 1000);
 
     } catch (error) {
         errorEl.textContent = 'Failed to retrieve password';

@@ -176,10 +176,11 @@ def run_direct_gui(vault_path=None):
     if vault_path:
         logger.info(f"Using custom vault path: {vault_path}")
 
+    from secure_credentials.src.security import SecurityManager
     from secure_credentials.src.ui.gui import CredentialManagerGUI
 
     try:
-        app = CredentialManagerGUI(vault_path=vault_path)
+        app = CredentialManagerGUI(security_manager=SecurityManager(), vault_path=vault_path)
         app.run()
     except Exception as e:
         logger.exception(f"Error in run_direct_gui: {str(e)}")

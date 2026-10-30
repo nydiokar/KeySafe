@@ -18,6 +18,7 @@ Usage:
 
 import asyncio
 import logging
+import logging.handlers
 import os
 import sys
 import time
@@ -25,7 +26,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
-from typing import Optional
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request, Response
@@ -40,6 +41,7 @@ logger = logging.getLogger("secure_credentials.api")
 
 STATIC_DIR: Path = Path(__file__).parent / "static"
 SESSION_COOKIE: str = "sc_session"
+MAX_BODY_BYTES: int = 16_384
 CSP: str = (
     "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; "
     "img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
@@ -49,8 +51,8 @@ CSP: str = (
 class CredentialMetadata(BaseModel):
     name: str
     type: str
-    created_at: Optional[str] = None
-    last_accessed: Optional[str] = None
+    created_at: str | None = None
+    last_accessed: str | None = None
 
 
 class Credential(BaseModel):
@@ -71,7 +73,7 @@ class RetrieveRequest(BaseModel):
 class VaultStatus(BaseModel):
     locked: bool
     timeout_seconds: int
-    seconds_until_lock: Optional[int] = None
+    seconds_until_lock: int | None = None
 
 
 def _package_version() -> str:
@@ -79,6 +81,25 @@ def _package_version() -> str:
         return version("secure_credentials")
     except PackageNotFoundError:
         return "0.0.0"
+
+
+AUDIT_LOG_PATH: Path = Path.home() / ".secure_credentials" / "logs" / "api.log"
+
+
+def configure_audit_log(path: Path) -> logging.Handler:
+    """Attach a rotating file handler (1 MB x 3) to the API logger and return it.
+
+    Only events are logged (unlock/lock, failures, lockouts, client address): never
+    passwords, credential names or request bodies.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    handler = logging.handlers.RotatingFileHandler(
+        path, maxBytes=1_000_000, backupCount=3, encoding="utf-8"
+    )
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+    return handler
 
 
 def _client_key(request: Request) -> str:
@@ -133,6 +154,23 @@ def create_app(settings: Settings, clock: Clock = time.monotonic) -> FastAPI:
     )
 
     @app.middleware("http")
+    async def reject_cross_origin_writes(request: Request, call_next):  # type: ignore[no-untyped-def]
+        length: str | None = request.headers.get("content-length")
+        if length and length.isdigit() and int(length) > MAX_BODY_BYTES:
+            return PlainTextResponse("Request too large", status_code=413)
+        origin: str | None = request.headers.get("origin")
+        if request.method not in {"GET", "HEAD", "OPTIONS"} and origin:
+            if urlparse(origin).netloc != request.headers.get("host", ""):
+                logger.warning(
+                    "Rejected cross-origin %s %s from %s",
+                    request.method,
+                    request.url.path,
+                    _client_key(request),
+                )
+                return PlainTextResponse("Cross-origin request rejected", status_code=403)
+        return await call_next(request)
+
+    @app.middleware("http")
     async def security_headers(request: Request, call_next):  # type: ignore[no-untyped-def]
         response: Response = await call_next(request)
         response.headers["Content-Security-Policy"] = CSP
@@ -144,7 +182,7 @@ def create_app(settings: Settings, clock: Clock = time.monotonic) -> FastAPI:
 
     def require_session(request: Request) -> str:
         enforce_idle()
-        token: Optional[str] = request.cookies.get(SESSION_COOKIE)
+        token: str | None = request.cookies.get(SESSION_COOKIE)
         if not token or not sessions.touch(token):
             raise HTTPException(status_code=401, detail="Vault is locked")
         return token
@@ -166,7 +204,7 @@ def create_app(settings: Settings, clock: Clock = time.monotonic) -> FastAPI:
     @app.get("/api/status", response_model=VaultStatus)
     def status(request: Request) -> VaultStatus:
         enforce_idle()
-        left: Optional[int] = sessions.seconds_left(request.cookies.get(SESSION_COOKIE))
+        left: int | None = sessions.seconds_left(request.cookies.get(SESSION_COOKIE))
         if left is None:
             return VaultStatus(locked=True, timeout_seconds=settings.auto_lock_seconds)
         return VaultStatus(
@@ -179,6 +217,7 @@ def create_app(settings: Settings, clock: Clock = time.monotonic) -> FastAPI:
         async with unlock_serial:
             wait: int = max(unlock_client.retry_after(client), unlock_global.retry_after("*"))
             if wait > 0:
+                logger.warning("Unlock refused (locked out %ss) for %s", wait, client)
                 raise HTTPException(
                     status_code=429,
                     detail="Too many failed attempts",
@@ -197,6 +236,7 @@ def create_app(settings: Settings, clock: Clock = time.monotonic) -> FastAPI:
                 raise HTTPException(status_code=403, detail="Invalid master password")
             unlock_client.record_success(client)
             unlock_global.record_success("*")
+            logger.info("Vault unlocked from %s", client)
         response.set_cookie(
             SESSION_COOKIE,
             token,
@@ -211,6 +251,7 @@ def create_app(settings: Settings, clock: Clock = time.monotonic) -> FastAPI:
     def lock(response: Response) -> dict[str, str]:
         sessions.revoke_all()
         vault.close()
+        logger.info("Vault locked manually")
         response.delete_cookie(SESSION_COOKIE, path="/")
         return {"status": "locked"}
 
@@ -236,6 +277,7 @@ def create_app(settings: Settings, clock: Clock = time.monotonic) -> FastAPI:
         client: str = _client_key(request)
         wait: int = retrieve_client.retry_after(client)
         if wait > 0:
+            logger.warning("Retrieve refused (locked out %ss) for %s", wait, client)
             raise HTTPException(
                 status_code=429,
                 detail="Too many failed attempts",
@@ -246,6 +288,7 @@ def create_app(settings: Settings, clock: Clock = time.monotonic) -> FastAPI:
             raise HTTPException(status_code=401, detail="Vault is locked")
         if not cred:
             retrieve_client.record_failure(client)
+            logger.warning("Failed credential retrieval from %s", client)
             raise HTTPException(
                 status_code=403, detail="Credential not found or incorrect credential password"
             )
@@ -278,12 +321,18 @@ def main() -> None:
     if not settings.tls_cert and not settings.cookie_secure:
         print("Note: plain HTTP. Use an encrypted private network or set TLS_CERT/TLS_KEY.")
 
+    try:
+        configure_audit_log(AUDIT_LOG_PATH)
+    except OSError as exc:
+        print(f"WARNING: audit log disabled ({exc})")
     uvicorn.run(
         create_app(settings),
         host=settings.bind_host,
         port=settings.port,
         log_level="warning",
         access_log=False,
+        proxy_headers=settings.trusted_proxy,
+        forwarded_allow_ips="127.0.0.1" if settings.trusted_proxy else None,
         ssl_certfile=settings.tls_cert,
         ssl_keyfile=settings.tls_key,
     )

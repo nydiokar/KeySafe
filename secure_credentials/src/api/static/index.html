@@ -23,6 +23,7 @@
         <div class="form-group">
             <input type="password"
                    id="masterPassword"
+                   autocomplete="current-password"
                    placeholder="Master password"
                    class="narrow-input">
         </div>
@@ -36,6 +37,7 @@
     <div id="mainContent" class="hidden">
         <input type="text"
                id="searchBox"
+               autocomplete="off" autocapitalize="off" spellcheck="false"
                class="search-box"
                placeholder="Search credentials...">
 
@@ -58,6 +60,7 @@
                     <label for="credPassword">Credential Password:</label>
                     <input type="password"
                            id="credPassword"
+                           autocomplete="off"
                            placeholder="Enter password to unlock">
                 </div>
                 <button id="retrieveBtn" class="btn btn-primary">

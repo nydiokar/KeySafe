@@ -63,3 +63,25 @@ def test_session_seconds_left_does_not_refresh_and_unknown_token() -> None:
     assert not s.touch(None)
     s.revoke_all()
     assert not s.touch(token)
+
+
+def test_session_store_is_thread_safe_under_concurrent_create_and_purge() -> None:
+    import threading
+
+    s = SessionStore(idle_seconds=3600)
+    tokens: list[str] = []
+    stop = threading.Event()
+
+    def purger() -> None:
+        while not stop.is_set():
+            s.purge()
+
+    t = threading.Thread(target=purger)
+    t.start()
+    try:
+        for _ in range(2000):
+            tokens.append(s.create())
+    finally:
+        stop.set()
+        t.join()
+    assert all(s.touch(tok) for tok in tokens)

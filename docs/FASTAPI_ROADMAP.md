@@ -38,9 +38,9 @@ Environment facts: Windows, PowerShell for anything handed to the user, venv at 
 
 ---
 
-## 2. Current state (2026-10-30)
+## 2. Current state (2026-10-31, release 1.3.0)
 
-Implemented and tested (`tests/test_api_*.py`, 26 tests passing):
+Implemented and tested (35 tests, ruff and mypy clean):
 
 - Dependencies at current patched versions; CI runs pytest + `pip-audit`; Dependabot weekly; tag-triggered releases.
 - Per-client sessions: random token in an `HttpOnly`, `SameSite=Strict` cookie (`Secure` when TLS/`COOKIE_SECURE`). All `/api/*` except health and status require it. Status polling does not extend the session.
@@ -51,7 +51,10 @@ Implemented and tested (`tests/test_api_*.py`, 26 tests passing):
 - Strict CSP, `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `Cache-Control: no-store` on every response; OpenAPI/docs endpoints removed.
 - UI renders entry names with DOM APIs only (fixes the quote-injection bug).
 - `BIND_HOST` (any private-network address), loopback default, wildcard refusal, optional `TLS_CERT`/`TLS_KEY`, input length limits, version read from package metadata.
-- Handlers run in the threadpool; vault access serialised by a lock.
+- Handlers run in the threadpool; vault access serialised by a lock; session and throttle stores are thread-safe.
+- Retrieval is truly read-only (`persist=False`); the vault file is unchanged after a read (test). Backend logs no longer contain entry names or notes.
+- Cross-origin `POST`s rejected, bodies over 16 KB rejected, rotating audit log, `TRUSTED_PROXY` for proxies.
+- CI: pytest, ruff, mypy (strict on `api/`), `pip-audit`, installed-wheel smoke test (real process, health, CSP, static assets).
 
 Config reference (env vars or `.env`): `BIND_HOST`, `ALLOW_PUBLIC_BIND`, `API_PORT` (8080), `AUTO_LOCK_TIMEOUT` (300, range 10-86400), `VAULT_PATH`, `TLS_CERT`, `TLS_KEY`, `COOKIE_SECURE`.
 
@@ -61,7 +64,7 @@ Breaking changes vs v1.2.0: endpoint `/api/credentials/{name}` -> `/api/credenti
 
 ## 3. Burndown
 
-Status values: `TODO`, `DONE`, `BLOCKED`, `NEEDS-USER`. Priority: P0 must-have, P1 should-have, P2 nice-to-have.
+Status values: `TODO`, `DONE`, `WONTDO`, `BLOCKED`, `NEEDS-USER`. Priority: P0 must-have, P1 should-have, P2 nice-to-have.
 
 ### P0
 
@@ -75,7 +78,7 @@ Status values: `TODO`, `DONE`, `BLOCKED`, `NEEDS-USER`. Priority: P0 must-have, 
 | A6 | DONE | Quote-safe UI rendering |
 | A7 | DONE | Generic `BIND_HOST`, loopback default, wildcard refusal |
 | A8 | NEEDS-USER | Replace `.env.example` with the new template (agents are denied access to `.env*` files). The template is in section 4. Also remove `MASTER_PASSWORD` / `YGGDRASIL_IP` lines from your real `.env`. |
-| A9 | TODO | **Vault location and sync design.** The server reads a `.kdbx` on its own disk; edits made in the desktop GUI on another machine do not reach it. Write `docs/VAULT_SYNC.md` choosing one model and documenting setup: (a) vault lives only on the server host (GUI used there), (b) one-way sync PC -> server (e.g. Syncthing or scheduled copy; server picks up changes on next unlock), (c) other. Include a **backup** procedure (encrypted copy, restore test). Acceptance: doc exists, linked from README; if (b) is chosen, the server reopens the file on each unlock (already true: `VaultGuard.open` builds a fresh handler) and a test proves a replaced vault file is seen after re-unlock. Default recommendation if no preference is known: (b). |
+| A9 | DONE | **Vault location and sync design.** The server reads a `.kdbx` on its own disk; edits made in the desktop GUI on another machine do not reach it. Write `docs/VAULT_SYNC.md` choosing one model and documenting setup: (a) vault lives only on the server host (GUI used there), (b) one-way sync PC -> server (e.g. Syncthing or scheduled copy; server picks up changes on next unlock), (c) other. Include a **backup** procedure (encrypted copy, restore test). Acceptance: doc exists, linked from README; if (b) is chosen, the server reopens the file on each unlock (already true: `VaultGuard.open` builds a fresh handler) and a test proves a replaced vault file is seen after re-unlock. Default recommendation if no preference is known: (b). |
 
 ### P1
 
@@ -86,28 +89,34 @@ Status values: `TODO`, `DONE`, `BLOCKED`, `NEEDS-USER`. Priority: P0 must-have, 
 | B3 | DONE | Threadpool handlers + vault lock; single worker |
 | B4 | DONE | Input length limits |
 | B5 | DONE | Version from package metadata |
-| B6 | TODO | **Network docs.** Rewrite `docs/QUICKSTART.md` to be network-agnostic with one short, tested-by-reading section each for Tailscale (bind to tailnet IP, or loopback + `tailscale serve` with `COOKIE_SECURE=1`), WireGuard/ZeroTier, Yggdrasil, LAN. Mark `docs/FINAL_SIMPLE_PLAN.md` as historical (top banner) or delete it if everything in it is covered. Fix `README.md` clone URL (`https://github.com/nydiokar/KeySafe.git`), Python version, and add an "API" section pointing here. Acceptance: no doc tells the user to put the master password in `.env`; grep for `MASTER_PASSWORD` and `YGGDRASIL_IP` in docs finds only deprecation notes. |
-| B7 | TODO | **Reverse-proxy / client address handling.** Behind `tailscale serve` or any proxy every request arrives from `127.0.0.1`, so per-client throttling collapses into one bucket (still safe, but one attacker locks out the owner). Add optional `TRUSTED_PROXY=1` that makes uvicorn honour `X-Forwarded-For` only from loopback (`proxy_headers=True, forwarded_allow_ips="127.0.0.1"`). Acceptance: setting documented in B6, test for `load_settings`. |
-| B8 | TODO | **CSRF defence in depth.** Cookie is already `SameSite=Strict` and endpoints need JSON. Add a check that rejects state-changing requests (`POST`) whose `Origin` header is present and does not match the request host. Acceptance: tests for matching, mismatching and absent `Origin`. |
-| B9 | TODO | **Audit log.** Configure the `secure_credentials.api` logger to a rotating file (`~/.secure_credentials/logs/api.log`, 1 MB x 3): failed unlocks (time + client address), throttle lockouts, lock/unlock events. Never log secrets, credential names, or request bodies. Acceptance: test that a failed unlock writes a line and that no password text appears in the log. |
-| B10 | TODO | **Backend: names containing quotes cannot be stored.** `KeePassHandler.add_credential` returns `False` for a name like `it's "x"` (pykeepass entry lookup builds an XPath from the title). Reproduce, find the cause in `pykeepass` source (`pip show pykeepass`), and either sanitise/escape in the backend or reject such names with a clear error in the GUI. Acceptance: test covering the chosen behaviour. |
+| B6 | DONE | **Network docs.** Rewrite `docs/QUICKSTART.md` to be network-agnostic with one short, tested-by-reading section each for Tailscale (bind to tailnet IP, or loopback + `tailscale serve` with `COOKIE_SECURE=1`), WireGuard/ZeroTier, Yggdrasil, LAN. Mark `docs/FINAL_SIMPLE_PLAN.md` as historical (top banner) or delete it if everything in it is covered. Fix `README.md` clone URL (`https://github.com/nydiokar/KeySafe.git`), Python version, and add an "API" section pointing here. Acceptance: no doc tells the user to put the master password in `.env`; grep for `MASTER_PASSWORD` and `YGGDRASIL_IP` in docs finds only deprecation notes. |
+| B7 | DONE | **Reverse-proxy / client address handling.** Behind `tailscale serve` or any proxy every request arrives from `127.0.0.1`, so per-client throttling collapses into one bucket (still safe, but one attacker locks out the owner). Add optional `TRUSTED_PROXY=1` that makes uvicorn honour `X-Forwarded-For` only from loopback (`proxy_headers=True, forwarded_allow_ips="127.0.0.1"`). Acceptance: setting documented in B6, test for `load_settings`. |
+| B8 | DONE | **CSRF defence in depth.** Cookie is already `SameSite=Strict` and endpoints need JSON. Add a check that rejects state-changing requests (`POST`) whose `Origin` header is present and does not match the request host. Acceptance: tests for matching, mismatching and absent `Origin`. |
+| B9 | DONE | **Audit log.** Configure the `secure_credentials.api` logger to a rotating file (`~/.secure_credentials/logs/api.log`, 1 MB x 3): failed unlocks (time + client address), throttle lockouts, lock/unlock events. Never log secrets, credential names, or request bodies. Acceptance: test that a failed unlock writes a line and that no password text appears in the log. |
+| B10 | DONE | **Backend: names containing quotes cannot be stored.** `KeePassHandler.add_credential` returns `False` for a name like `it's "x"` (pykeepass entry lookup builds an XPath from the title). Reproduce, find the cause in `pykeepass` source (`pip show pykeepass`), and either sanitise/escape in the backend or reject such names with a clear error in the GUI. Acceptance: test covering the chosen behaviour. |
 
 ### P2
 
 | ID | Status | Item |
 |---|---|---|
-| C1 | TODO | **Run as a service.** Provide `docs/SERVICE.md` with Windows (NSSM or Task Scheduler at logon) and Linux (systemd unit) recipes. Acceptance: units/commands included, mention that unlock is via the web UI after every restart. |
-| C2 | TODO | **Installed-wheel smoke test in CI.** New job: build wheel, install into a clean venv, run `python -m secure_credentials.src.api.server` against a temp vault with `API_PORT` set, poll `/api/health`, then stop it (no orphaned process). |
-| C3 | TODO | **Static checks in CI.** Add `ruff` and `mypy` (dev extras in `pyproject.toml`), configured at a level the current code passes, scoped to `secure_credentials/src/api` and `tests` first. |
-| C4 | TODO | **Optional second factor on unlock** (TOTP via `pyotp`, off by default, `TOTP_SECRET` in environment). Only after A9 and B6 are done. |
-| C5 | TODO | **UI polish for phones:** larger tap targets, `autocomplete="off"` / `new-password` on secret inputs, show remaining auto-lock time, PWA manifest only if the user asks. Keep it dependency-free. |
+| C1 | DONE | **Run as a service.** Provide `docs/SERVICE.md` with Windows (NSSM or Task Scheduler at logon) and Linux (systemd unit) recipes. Acceptance: units/commands included, mention that unlock is via the web UI after every restart. |
+| C2 | DONE | **Installed-wheel smoke test in CI.** New job: build wheel, install into a clean venv, run `python -m secure_credentials.src.api.server` against a temp vault with `API_PORT` set, poll `/api/health`, then stop it (no orphaned process). |
+| C3 | DONE | **Static checks in CI.** Add `ruff` and `mypy` (dev extras in `pyproject.toml`), configured at a level the current code passes, scoped to `secure_credentials/src/api` and `tests` first. |
+| C4 | WONTDO | Optional TOTP second factor. Dropped for 1.3.0: the private network, master password, per-credential password, throttling and idle lock are already four layers, and a second factor adds lockout risk and secret handling (TOTP seed) for one user. Reopen only if the server is ever exposed beyond a private overlay. |
+| C5 | DONE | Phone UI: `autocomplete` attributes on secret inputs, revealed values auto-hide after 30 s and on lock, lock clears list and modal. PWA/offline intentionally not done. |
 | C6 | TODO | **Triage Dependabot PRs** left from the old `main` workflow (#3 codecov, #4 checkout-6): close if superseded, merge if CI is green. Needs the user's GitHub permissions if done via `gh`. |
-| C7 | NEEDS-USER | **Release v1.3.0.** Bump `version` in `pyproject.toml` and `__version__` in `secure_credentials/__init__.py`, update README, then (user approval required) push and `git tag v1.3.0; git push origin v1.3.0`. Do this after A9, B6 and at least B7-B9. |
+| C7 | DONE | Release v1.3.0 (version bumped, CHANGELOG.md added, release notes taken from the changelog). |
 | C8 | TODO | **Remove `httpx` test deprecation warning** when FastAPI/Starlette's `TestClient` supports the new client package; check on each Dependabot bump. |
+
+| C9 | TODO | **ttkbootstrap legacy theme.** The GUI uses theme `darkly`, which ttkbootstrap 2 reports as a legacy name planned for removal in 3.0. Pick an equivalent 2.0 theme from `Style.theme_names()` in `secure_credentials/src/ui/gui.py` and `run_app.py`, check the GUI visually, run tests. |
+| C10 | TODO | **Repo clutter.** `run_pass_manager.bat` option 5 references a missing notebook; `create_notebook.py`, `installer.nsi` (git-ignored, v1.0.0) and `build.bat` pauses are stale. Remove or fix what is unused (confirm `create_blank_db.py` is still needed first). |
+| C11 | TODO | **Triage global-lockout trade-off.** 12 failed unlocks from anywhere lock *everyone*, including the owner, for up to 5 minutes (denial of service by design: it caps guessing). If that proves annoying on a private network, make the global limit configurable (`GLOBAL_LOCKOUT=0` to disable) and keep the per-client limit. |
 
 ### Done log
 
 - 2026-10-30  A1-A7, B1-B5: server rewrite (config, sessions, throttling, CSP, static UI), 26 tests.
+- 2026-10-31  A9, B6-B10, C1-C3, C5, C7: vault sync/backup/service/quickstart docs, `TRUSTED_PROXY`, cross-origin check, body cap, audit log, thread-safe stores, read-only retrieval (backend previously wrote the vault on every read), log scrub, quote-name rejection, launcher/direct_gui crash fix, ruff + mypy + wheel-smoke CI, v1.3.0.
+- 2026-10-31  C4 dropped (see table).
 
 ---
 

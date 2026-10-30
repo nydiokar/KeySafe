@@ -51,3 +51,8 @@ def test_main_exits_on_wildcard_bind_and_missing_vault(monkeypatch: pytest.Monke
     with pytest.raises(SystemExit) as missing:
         server.main()
     assert missing.value.code == 1
+
+
+def test_trusted_proxy_flag() -> None:
+    assert load_settings({}).trusted_proxy is False
+    assert load_settings({"TRUSTED_PROXY": "1"}).trusted_proxy is True

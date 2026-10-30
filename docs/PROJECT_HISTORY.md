@@ -1,6 +1,6 @@
 # Project history: how the repo got to its current state
 
-Last updated: 2026-10-30. Sources: git history of this repo, `docs/FINAL_SIMPLE_PLAN.md`,
+Last updated: 2026-10-30. Sources: git history of this repo, `docs/FINAL_SIMPLE_PLAN.md` (since removed; see `316e79b`),
 and the code on both lines. **Facts** come from commits and files. **Inferences** are
 marked as such; no document records the reasoning behind the decisions below.
 
@@ -20,7 +20,7 @@ Both use the same backend, `secure_credentials/src/keepass_backend.py` (`KeePass
 | 2025-07-08 | Local repo starts: desktop GUI app, exe build (`5fc5299` "add version", `50b10b0` "dep update"). | `master` (local) |
 | 2025-10-28 | GitHub repo `nydiokar/KeySafe` created. First push is a fresh root commit `fdbf2c4` "v1", a snapshot of the desktop app. The July history was not pushed. | `main` |
 | 2025-10-28 | Same day on `main`: **Flask web app** (browser login, add/edit/delete/view, `HOST=0.0.0.0`), Linux support, CI (flake8, mypy, safety, bandit, codecov), pre-commit, Dependabot, docs (`docs/DEPLOYMENT.md` etc.). | `main` |
-| 2025-12-07 | **FastAPI server** added (`316e79b` "add API layer and web UI"): read-only API plus single-page UI, bound to a Yggdrasil address. Plan in `docs/FINAL_SIMPLE_PLAN.md`. | `master` |
+| 2025-12-07 | **FastAPI server** added (`316e79b` "add API layer and web UI"): read-only API plus single-page UI, bound to a Yggdrasil address. Plan in `FINAL_SIMPLE_PLAN.md` (added in `316e79b`, removed 2026-10-31 as obsolete). | `master` |
 | 2025-12-08 | Backend security refactor (`62b7017`, `2a86ab0`): per-credential encryption, legacy plaintext handling removed, auto-lock. | `master` |
 | 2025-12-08 | Last `main` commit: Dependabot PR #1 merged. | `main` |
 | 2026-01-24 | Last `master` commit before today: custom vault paths via CLI / `VAULT_PATH`. | `master` |
@@ -87,10 +87,14 @@ Direction for the kept server: `docs/FASTAPI_ROADMAP.md`.
 4. `main` merged into `master` with the `ours` strategy (no force-push): all 27 `main` commits preserved, `master`'s file tree kept. `LICENSE` restored from `main`. `main` then fast-forwarded to `master`.
 5. `master` and `main` currently point at the same commit; the `master` branch is redundant and can be deleted.
 
-## 7. Known leftovers
+## 7. Since the merge (2026-10-31)
 
-- `docs/QUICKSTART.md` and `docs/FINAL_SIMPLE_PLAN.md` describe the Yggdrasil-specific setup; to be generalised (see roadmap).
-- `README.md` clone URL and some build instructions predate the release flow.
-- `installer.nsi` (local, git-ignored) is stale: version 1.0.0, placeholder URLs.
-- `run_app.py` `direct_gui` mode constructs the GUI without the required `SecurityManager` and raises.
-- Dependabot PRs #3 and #4 were opened against the old workflow files; Dependabot should supersede them.
+- API server rewritten around sessions, throttling, strict CSP and a network-agnostic `BIND_HOST`; release 1.3.0. Work items and status: `docs/FASTAPI_ROADMAP.md`; user-visible changes: `CHANGELOG.md`.
+- Bugs found in review and fixed: the "read-only" retrieval wrote the vault file on every read; backend logs contained entry names and notes; `launcher.py` and `run_app.py direct_gui` crashed for a missing `SecurityManager`; names with a double quote could be stored but not found.
+- `docs/FINAL_SIMPLE_PLAN.md` removed (obsolete); `docs/QUICKSTART.md`, `docs/VAULT_SYNC.md`, `docs/SERVICE.md` added.
+
+## 8. Known leftovers
+
+- `installer.nsi` (local, git-ignored) is stale: version 1.0.0, placeholder URLs; releases ship a portable exe.
+- GUI uses a legacy ttkbootstrap theme name; repo clutter; see roadmap C9, C10.
+- Dependabot PRs #3 and #4 were opened against the old workflow files; Dependabot should supersede them (roadmap C6).

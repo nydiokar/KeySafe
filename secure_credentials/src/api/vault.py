@@ -4,16 +4,16 @@ The master password is used only to open the database and is never stored.
 """
 
 import threading
-from typing import Any, Optional
+from typing import Any
 
 from secure_credentials.src.keepass_backend import KeePassHandler
 
 
 class VaultGuard:
-    def __init__(self, vault_path: Optional[str]) -> None:
-        self._vault_path: Optional[str] = vault_path
+    def __init__(self, vault_path: str | None) -> None:
+        self._vault_path: str | None = vault_path
         self._lock: threading.Lock = threading.Lock()
-        self._kp: Optional[KeePassHandler] = None
+        self._kp: KeePassHandler | None = None
 
     @property
     def db_path(self) -> str:
@@ -35,13 +35,13 @@ class VaultGuard:
         with self._lock:
             self._kp = None
 
-    def list_metadata(self) -> Optional[dict[str, dict[str, Any]]]:
+    def list_metadata(self) -> dict[str, dict[str, Any]] | None:
         with self._lock:
             return None if self._kp is None else self._kp.get_all_credentials()
 
-    def retrieve(self, name: str, credential_password: str) -> tuple[bool, Optional[dict[str, Any]]]:
+    def retrieve(self, name: str, credential_password: str) -> tuple[bool, dict[str, Any] | None]:
         """Return (vault_open, credential). credential is None on wrong password or unknown name."""
         with self._lock:
             if self._kp is None:
                 return False, None
-            return True, self._kp.get_credential(name, credential_password)
+            return True, self._kp.get_credential(name, credential_password, persist=False)

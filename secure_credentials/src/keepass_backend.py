@@ -15,6 +15,24 @@ from base64 import b64encode, b64decode
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 
+MAX_NAME_LENGTH: int = 256
+
+
+def invalid_name_reason(name: str) -> Optional[str]:
+    """Return why a credential name is unusable, or None if it is fine.
+
+    pykeepass builds an XPath predicate from the title, which raises for names containing
+    a double quote, so such names could be stored but never found again.
+    """
+    if not name or not name.strip():
+        return "Name cannot be empty"
+    if len(name) > MAX_NAME_LENGTH:
+        return f"Name is longer than {MAX_NAME_LENGTH} characters"
+    if '"' in name:
+        return 'Name cannot contain a double quote (")'
+    return None
+
+
 class KeePassHandler:
     def __init__(self, vault_path: Optional[str] = None):
         # Allow custom vault path via parameter or environment variable
@@ -208,6 +226,11 @@ class KeePassHandler:
             if not self.kp:
                 return False  # Database must be opened first with master password
 
+            reason = invalid_name_reason(name)
+            if reason:
+                self.logger.warning(f"Rejected credential name: {reason}")
+                return False
+
             # Get appropriate group
             group = self.kp.find_groups(name=cred_type.title(), first=True)
             if not group:
@@ -228,15 +251,21 @@ class KeePassHandler:
             )
             
             self.kp.save()
-            self.logger.info(f"Added credential: {name}")
+            self.logger.info("Added credential")
             return True
             
         except Exception as e:
             self.logger.error(f"Failed to add credential: {str(e)}")
             return False
 
-    def get_credential(self, name: str, credential_password: str) -> Optional[Dict[str, Any]]:
-        """Retrieve a credential using only its specific password."""
+    def get_credential(
+        self, name: str, credential_password: str, persist: bool = True
+    ) -> Optional[Dict[str, Any]]:
+        """Retrieve a credential using only its specific password.
+
+        With persist=False the vault file is never written (no last-accessed update, no
+        migration of legacy entries); the network server uses this so reads stay read-only.
+        """
         try:
             if not self.kp:
                 return None  # Database must be opened first with master password
@@ -248,22 +277,17 @@ class KeePassHandler:
             # Verify credential password
             notes = entry.notes or ""
             stored_hash = None
-            self.logger.info(f"Parsing notes for entry '{name}', notes length: {len(notes)}")
             for line in notes.splitlines():
                 parts = line.split(":", 1)
                 if len(parts) != 2:
-                    self.logger.debug(f"Skipping line (not key:value): {line[:50]}")
                     continue
                 key = parts[0].strip().lower()
                 value = parts[1].strip()
-                self.logger.debug(f"Parsed key: '{key}'")
                 if key == "credential password hash":
                     stored_hash = value
-                    self.logger.info(f"Found credential password hash (length: {len(value)})")
                     break
             if not stored_hash:
-                self.logger.warning(f"No credential password hash found for entry '{name}'")
-                self.logger.warning(f"Full notes content:\n{notes}")
+                self.logger.warning("No credential password hash found for entry")
                 return None
             if not self._verify_credential_password(credential_password, stored_hash):
                 self.logger.warning("Invalid credential password provided")
@@ -275,28 +299,29 @@ class KeePassHandler:
                 self.logger.warning("Failed to decrypt credential value")
                 return None
 
-            # Migrate older plaintext entries to encrypted form
-            if not entry.password.startswith("ENC1:"):
-                entry.password = self._encrypt_value(decrypted_value, credential_password)
-                self.logger.info(f"Migrated credential to encrypted storage: {name}")
-
-            # Update last accessed time in notes
             notes_lines = notes.split('\n')
-            new_notes = []
-            access_time_added = False
-            
-            for line in notes_lines:
-                if line.startswith("Last Accessed:"):
+            if persist:
+                # Migrate older plaintext entries to encrypted form
+                if not entry.password.startswith("ENC1:"):
+                    entry.password = self._encrypt_value(decrypted_value, credential_password)
+                    self.logger.info("Migrated credential to encrypted storage")
+
+                # Update last accessed time in notes
+                new_notes = []
+                access_time_added = False
+
+                for line in notes_lines:
+                    if line.startswith("Last Accessed:"):
+                        new_notes.append(f"Last Accessed: {datetime.datetime.now().isoformat()}")
+                        access_time_added = True
+                    else:
+                        new_notes.append(line)
+
+                if not access_time_added:
                     new_notes.append(f"Last Accessed: {datetime.datetime.now().isoformat()}")
-                    access_time_added = True
-                else:
-                    new_notes.append(line)
-                    
-            if not access_time_added:
-                new_notes.append(f"Last Accessed: {datetime.datetime.now().isoformat()}")
-            
-            entry.notes = '\n'.join(new_notes)
-            self.kp.save()
+
+                entry.notes = '\n'.join(new_notes)
+                self.kp.save()
 
             # Parse type from notes
             cred_type = "other"
@@ -321,6 +346,11 @@ class KeePassHandler:
         try:
             if not self.kp:
                 return False  # Database must be opened first with master password
+
+            reason = invalid_name_reason(new_name)
+            if reason:
+                self.logger.warning(f"Rejected credential name: {reason}")
+                return False
 
             entry = self.kp.find_entries(title=old_name, first=True)
             if not entry:
@@ -380,7 +410,7 @@ class KeePassHandler:
                 entry.move(new_group)
 
             self.kp.save()
-            self.logger.info(f"Updated credential: {new_name}")
+            self.logger.info("Updated credential")
             return True
             
         except Exception as e:
@@ -419,7 +449,7 @@ class KeePassHandler:
 
             self.kp.delete_entry(entry)
             self.kp.save()
-            self.logger.info(f"Deleted credential: {name}")
+            self.logger.info("Deleted credential")
             return True
             
         except Exception as e:

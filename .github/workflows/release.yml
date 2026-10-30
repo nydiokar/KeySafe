@@ -28,6 +28,8 @@ jobs:
           init_version = re.search(r'__version__\s*=\s*"([^"]+)"', init).group(1)
           assert tag == toml_version == init_version, f"tag={tag} pyproject={toml_version} __init__={init_version}"
       - run: python -m pip install -e ".[dev]" build
+      - run: python -m ruff check
+      - run: python -m mypy
       - run: python -m pytest -q tests
       - name: Build GUI executable
         run: pyinstaller secure_credentials.spec --noconfirm
@@ -42,4 +44,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/SecureCredentialManager.exe dist/*.whl dist/*.tar.gz dist/SHA256SUMS.txt --title "$GITHUB_REF_NAME" --generate-notes
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          python .github/scripts/release_notes.py "$VERSION" > notes.md
+          gh release create "$GITHUB_REF_NAME" dist/SecureCredentialManager.exe dist/*.whl dist/*.tar.gz dist/SHA256SUMS.txt --title "$GITHUB_REF_NAME" --notes-file notes.md
