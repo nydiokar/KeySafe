@@ -31,8 +31,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Import existing KeePass handler
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from src.keepass_backend import KeePassHandler
+try:
+    from secure_credentials.src.keepass_backend import KeePassHandler
+except ImportError:
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+    from src.keepass_backend import KeePassHandler
 
 # ==================== CONFIGURATION ====================
 
@@ -895,7 +898,7 @@ WEB_UI_HTML = """
 
 # ==================== STARTUP ====================
 
-if __name__ == "__main__":
+def main() -> None:
     import uvicorn
 
     print(f"\n{'='*60}")
@@ -946,3 +949,7 @@ if __name__ == "__main__":
         port=PORT,
         log_level="info"
     )
+
+
+if __name__ == "__main__":
+    main()

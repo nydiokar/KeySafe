@@ -7,7 +7,7 @@ import os
 from tkinter import messagebox
 import logging
 import subprocess
-import pkg_resources
+from importlib.metadata import version as dist_version
 import requests
 from packaging import version
 
@@ -1593,7 +1593,7 @@ class CredentialManagerGUI:
         """Check for updates and return True if up to date, False if updates available."""
         try:
             # Get current version from package
-            current_version = pkg_resources.get_distribution('secure_credentials').version
+            current_version = dist_version('secure_credentials')
             
             # Get latest version from GitHub or your package repository
             # This is a placeholder - implement actual version check logic

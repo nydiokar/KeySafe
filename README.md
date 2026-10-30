@@ -18,13 +18,21 @@ A secure and user-friendly credential manager with GUI interface, built with Pyt
 
 ### Option 1: Using the Executable (Windows)
 
-1. Download the latest release from the releases page
-2. Run the installer
-3. Launch "Secure Credential Manager" from the Start Menu
+1. Download `SecureCredentialManager.exe` from the [latest release](https://github.com/nydiokar/KeySafe/releases/latest)
+2. Run it (portable, no installer). Verify against `SHA256SUMS.txt` if desired.
+
+### Option 1b: GUI + API via pip (any release)
+
+```powershell
+python -m venv .venv; .\.venv\Scripts\Activate.ps1; pip install https://github.com/nydiokar/KeySafe/releases/latest/download/<wheel-filename>.whl
+```
+
+- GUI: `python -m secure_credentials.run_app`
+- API: set `YGGDRASIL_IP` (and optionally `API_PORT`, `VAULT_PATH`) in the environment or a `.env`, then run `secure-credentials-api`
 
 ### Option 2: From Source
 
-1. Ensure you have Python 3.8 or newer installed
+1. Ensure you have Python 3.10 or newer installed
 2. Clone this repository:
    ```bash
    git clone https://github.com/yourusername/secure_credentials.git
@@ -93,6 +101,11 @@ To create a standalone executable:
    ```
 
 The executable will be created in the `dist` directory.
+
+## Releases and dependency updates
+
+- Dependabot opens weekly PRs for Python dependencies and GitHub Actions; CI (tests + `pip-audit`) runs on every PR and weekly.
+- To release: bump `version` in `pyproject.toml` and `__version__` in `secure_credentials/__init__.py`, commit, then `git tag vX.Y.Z; git push origin vX.Y.Z`. The Release workflow verifies the tag matches both, runs tests, builds the exe, wheel and sdist, and publishes them with `SHA256SUMS.txt`.
 
 ## License
 

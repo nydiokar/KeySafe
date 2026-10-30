@@ -46,6 +46,7 @@ secure_credentials/settings.json
 dist/
 build/
 *.spec
+!secure_credentials.spec
 *.manifest
 *.exe
 *.msi

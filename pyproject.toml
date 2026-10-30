@@ -7,33 +7,34 @@ name = "secure_credentials"
 version = "1.2.0"
 description = "A secure credential manager with GUI interface"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 license = "MIT"
 dependencies = [
-    "ttkbootstrap>=1.13.0",
-    "pykeepass>=4.1.1",
-    "pyperclip>=1.9.0",
-    "pillow>=10.0.0,<11.0.0",
+    "ttkbootstrap>=2.2.6",
+    "pykeepass>=4.2.0",
+    "pyperclip>=1.11.0",
+    "pillow>=13.0.0",
     "pystray>=0.19.5",
-    "packaging>=24.2",
-    "requests>=2.32.3",
+    "packaging>=26.3",
+    "requests>=2.34.2",
     "olefile>=0.47",
-    "pywin32>=306",
-    "python-dotenv>=1.0.0",
-    "fastapi>=0.115.0",
-    "uvicorn[standard]>=0.30.0",
-    "cryptography>=42.0.0"
+    "pywin32>=312; sys_platform == 'win32'",
+    "python-dotenv>=1.2.4",
+    "fastapi>=0.162.0",
+    "uvicorn[standard]>=0.54.0",
+    "cryptography>=50.0.2"
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.3.5",
-    "black>=25.1.0",
-    "pyinstaller>=6.14.2"
+    "pytest>=9.2.0",
+    "httpx>=0.28.1",
+    "black>=26.10.1",
+    "pyinstaller>=6.22.3"
 ]
 
 [project.scripts]
-secure-credentials = "secure_credentials.src.run_app:main"
+secure-credentials-api = "secure_credentials.src.api.server:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["secure_credentials"] 
+packages = ["secure_credentials"]
