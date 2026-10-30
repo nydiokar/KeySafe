@@ -1,93 +1,151 @@
-# FastAPI server: direction, current state, remaining work
+# FastAPI server: roadmap and burndown
 
 Decision record and history: `docs/PROJECT_HISTORY.md`.
-File: `secure_credentials/src/api/server.py` (entry point: `secure-credentials-api`).
+Code: `secure_credentials/src/api/` (`server.py`, `config.py`, `auth.py`, `vault.py`, `static/`).
+Entry point: `secure-credentials-api` or `python -m secure_credentials.src.api.server`.
 
-## 1. Goal
+Goal: reach the KeePass vault from other devices over a **private network** (Tailscale,
+WireGuard, ZeroTier, Yggdrasil, LAN, or loopback behind a proxy), read/retrieve only,
+simple and secure. Never exposed to the public internet.
 
-Reach the KeePass vault from other devices (phone, laptop) over a **private network**, without
-exposing it to the public internet. Read/retrieve only: list entries, view one entry.
-Write operations from the network are out of scope unless a concrete need appears.
+---
 
-## 2. Network binding must be network-agnostic
+## 1. Agent protocol (read this first, then work without asking)
 
-Yggdrasil was a trial. The server must work on any private network: Tailscale, WireGuard,
-ZeroTier, Yggdrasil, a plain LAN, or loopback behind a reverse proxy.
+1. Read this file, then `docs/PROJECT_HISTORY.md` section 5 (decision) if context is needed.
+2. Pick the **first item in the Burndown with status `TODO`** whose dependencies are `DONE`. Items marked `BLOCKED` or `NEEDS-USER` are skipped. Do not ask which item to take.
+3. Implement it to its **Acceptance** criteria, with the tests it lists. Keep the change minimal; no unrelated refactors.
+4. Verify (PowerShell, from the repo root):
+   - `.\.venv\Scripts\python.exe -m pytest -q tests` must pass.
+   - `.\.venv\Scripts\python.exe -m pip_audit --skip-editable` must report no vulnerabilities (if `pip_audit` is missing: `.\.venv\Scripts\python.exe -m pip install pip-audit`).
+5. Update this file in the same commit: set the item to `DONE`, add one line to the **Done log** (date, item ID, commit subject). Add newly discovered work as new `TODO` items at the right priority.
+6. Commit locally with a message `<ID>: <summary>`. Local commits do not need approval.
+7. Repeat from step 2 until no `TODO` remains or an item needs the user.
+8. **Never without the user's explicit say-so:** `git push`, creating or pushing tags, deleting remote branches, force-anything, changing repo settings.
+9. When stopping, report in 5 lines or fewer: items completed, items remaining, anything blocked and what exactly the user must do.
 
-Current code: `YGGDRASIL_IP` is the only way to set the bind address and it is mandatory.
+Environment facts: Windows, PowerShell for anything handed to the user, venv at `.venv\`, Python 3.12, `pyproject.toml` is the only dependency source (no ad-hoc installs; add to `pyproject.toml` then `pip install -e ".[dev]"`). Code style: strict type annotations, pydantic models for data, functions over classes where practical, no `@staticmethod`, minimal logging.
 
-Required change:
-- Replace with a generic `BIND_HOST` (IPv4, IPv6 or hostname). Keep `YGGDRASIL_IP` as a deprecated alias for one release.
-- Default `127.0.0.1` when unset (safe: unreachable from other machines).
-- Refuse `0.0.0.0` / `::` unless `ALLOW_PUBLIC_BIND=1` is set, with a warning.
-- Keep `API_PORT`.
-- Do not hard-code any network name in messages or docs; docs show one example per network.
+### Decisions already made (do not reopen)
 
-How each network is used:
+- FastAPI is the only network server. The Flask app is not coming back (see history doc).
+- The server is **read-only** (list names, retrieve one credential). Remote write endpoints are out of scope unless the user asks; if ever added they must be off by default behind a config flag.
+- One process, one uvicorn worker (state is in-process).
+- Master password is entered only in the web UI and is never stored (not in env, `.env`, scripts, or memory beyond opening the database).
+- Network-agnostic: configuration is `BIND_HOST`; no network name is hard-coded in code. `YGGDRASIL_IP` is a deprecated alias.
+- Default bind is loopback; wildcard binds require `ALLOW_PUBLIC_BIND=1`.
+- Frontend stays dependency-free static files (`static/index.html`, `app.js`, `style.css`) under a strict CSP: no inline script/style, no inline handlers.
 
-| Network | Bind to | Notes |
+---
+
+## 2. Current state (2026-10-30)
+
+Implemented and tested (`tests/test_api_*.py`, 26 tests passing):
+
+- Dependencies at current patched versions; CI runs pytest + `pip-audit`; Dependabot weekly; tag-triggered releases.
+- Per-client sessions: random token in an `HttpOnly`, `SameSite=Strict` cookie (`Secure` when TLS/`COOKIE_SECURE`). All `/api/*` except health and status require it. Status polling does not extend the session.
+- Idle auto-lock per session; vault handle dropped when the last session expires (background reaper every 2 s, plus a check on every request). `POST /api/lock` revokes all sessions.
+- Throttling with exponential backoff: unlock (per client and global) and credential retrieval (per client); `429` with `Retry-After`; bounded memory.
+- Master password is never stored. Interactive startup prompt removed; unlock is through the web UI.
+- Credential name moved out of the URL: `POST /api/credentials/retrieve` with `{name, credential_password}`; access log disabled.
+- Strict CSP, `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `Cache-Control: no-store` on every response; OpenAPI/docs endpoints removed.
+- UI renders entry names with DOM APIs only (fixes the quote-injection bug).
+- `BIND_HOST` (any private-network address), loopback default, wildcard refusal, optional `TLS_CERT`/`TLS_KEY`, input length limits, version read from package metadata.
+- Handlers run in the threadpool; vault access serialised by a lock.
+
+Config reference (env vars or `.env`): `BIND_HOST`, `ALLOW_PUBLIC_BIND`, `API_PORT` (8080), `AUTO_LOCK_TIMEOUT` (300, range 10-86400), `VAULT_PATH`, `TLS_CERT`, `TLS_KEY`, `COOKIE_SECURE`.
+
+Breaking changes vs v1.2.0: endpoint `/api/credentials/{name}` -> `/api/credentials/retrieve`; `YGGDRASIL_IP` -> `BIND_HOST`; default bind is loopback; no startup password prompt; `.env` `MASTER_PASSWORD` is no longer used (remove it from your `.env`).
+
+---
+
+## 3. Burndown
+
+Status values: `TODO`, `DONE`, `BLOCKED`, `NEEDS-USER`. Priority: P0 must-have, P1 should-have, P2 nice-to-have.
+
+### P0
+
+| ID | Status | Item |
 |---|---|---|
-| Tailscale | the node's `100.x` / `fd7a:...` address, **or** `127.0.0.1` + `tailscale serve` | `tailscale serve` adds HTTPS with an automatic certificate |
-| WireGuard / ZeroTier | the interface address | transport is encrypted by the tunnel |
-| Yggdrasil | the `2xx:` / `3xx:` address | transport is end-to-end encrypted |
-| LAN only | the LAN address | plain HTTP on the LAN; add TLS (section 4.3) |
+| A1 | DONE | Online brute-force protection on unlock and retrieve (backoff + 429) |
+| A2 | DONE | Per-client sessions instead of global unlock |
+| A3 | DONE | Stop keeping the master password in memory; remove startup prompt |
+| A4 | DONE | Credential names out of URLs; access log off |
+| A5 | DONE | Remove `MASTER_PASSWORD` requirement from start scripts |
+| A6 | DONE | Quote-safe UI rendering |
+| A7 | DONE | Generic `BIND_HOST`, loopback default, wildcard refusal |
+| A8 | NEEDS-USER | Replace `.env.example` with the new template (agents are denied access to `.env*` files). The template is in section 4. Also remove `MASTER_PASSWORD` / `YGGDRASIL_IP` lines from your real `.env`. |
+| A9 | TODO | **Vault location and sync design.** The server reads a `.kdbx` on its own disk; edits made in the desktop GUI on another machine do not reach it. Write `docs/VAULT_SYNC.md` choosing one model and documenting setup: (a) vault lives only on the server host (GUI used there), (b) one-way sync PC -> server (e.g. Syncthing or scheduled copy; server picks up changes on next unlock), (c) other. Include a **backup** procedure (encrypted copy, restore test). Acceptance: doc exists, linked from README; if (b) is chosen, the server reopens the file on each unlock (already true: `VaultGuard.open` builds a fresh handler) and a test proves a replaced vault file is seen after re-unlock. Default recommendation if no preference is known: (b). |
 
-Preferred pattern: bind to loopback and let a proxy or overlay-provided TLS front it, so the
-app never listens on an interface it did not choose.
+### P1
 
-## 3. Already in place
+| ID | Status | Item |
+|---|---|---|
+| B1 | DONE | Security headers, CSP, no-store |
+| B2 | DONE | Optional TLS via `TLS_CERT`/`TLS_KEY` |
+| B3 | DONE | Threadpool handlers + vault lock; single worker |
+| B4 | DONE | Input length limits |
+| B5 | DONE | Version from package metadata |
+| B6 | TODO | **Network docs.** Rewrite `docs/QUICKSTART.md` to be network-agnostic with one short, tested-by-reading section each for Tailscale (bind to tailnet IP, or loopback + `tailscale serve` with `COOKIE_SECURE=1`), WireGuard/ZeroTier, Yggdrasil, LAN. Mark `docs/FINAL_SIMPLE_PLAN.md` as historical (top banner) or delete it if everything in it is covered. Fix `README.md` clone URL (`https://github.com/nydiokar/KeySafe.git`), Python version, and add an "API" section pointing here. Acceptance: no doc tells the user to put the master password in `.env`; grep for `MASTER_PASSWORD` and `YGGDRASIL_IP` in docs finds only deprecation notes. |
+| B7 | TODO | **Reverse-proxy / client address handling.** Behind `tailscale serve` or any proxy every request arrives from `127.0.0.1`, so per-client throttling collapses into one bucket (still safe, but one attacker locks out the owner). Add optional `TRUSTED_PROXY=1` that makes uvicorn honour `X-Forwarded-For` only from loopback (`proxy_headers=True, forwarded_allow_ips="127.0.0.1"`). Acceptance: setting documented in B6, test for `load_settings`. |
+| B8 | TODO | **CSRF defence in depth.** Cookie is already `SameSite=Strict` and endpoints need JSON. Add a check that rejects state-changing requests (`POST`) whose `Origin` header is present and does not match the request host. Acceptance: tests for matching, mismatching and absent `Origin`. |
+| B9 | TODO | **Audit log.** Configure the `secure_credentials.api` logger to a rotating file (`~/.secure_credentials/logs/api.log`, 1 MB x 3): failed unlocks (time + client address), throttle lockouts, lock/unlock events. Never log secrets, credential names, or request bodies. Acceptance: test that a failed unlock writes a line and that no password text appears in the log. |
+| B10 | TODO | **Backend: names containing quotes cannot be stored.** `KeePassHandler.add_credential` returns `False` for a name like `it's "x"` (pykeepass entry lookup builds an XPath from the title). Reproduce, find the cause in `pykeepass` source (`pip show pykeepass`), and either sanitise/escape in the backend or reject such names with a clear error in the GUI. Acceptance: test covering the chosen behaviour. |
 
-- Dependencies at current patched versions; `pip-audit` runs in CI on every PR and weekly; Dependabot PRs weekly.
-- Tag-triggered release (exe, wheel, sdist, `SHA256SUMS.txt`).
-- Vault auto-lock after idle timeout (`AUTO_LOCK_TIMEOUT`, default 300 s); vault handle dropped on lock.
-- Per-credential password required to read a value, on top of the master password.
-- Swagger/ReDoc UI disabled; generic `500` errors without internals.
-- Master password not accepted via URL; prompted with `getpass` at startup.
-- Smoke tests for lock/unlock flow, crypto and backend round-trip.
+### P2
 
-## 4. Remaining work, in priority order
+| ID | Status | Item |
+|---|---|---|
+| C1 | TODO | **Run as a service.** Provide `docs/SERVICE.md` with Windows (NSSM or Task Scheduler at logon) and Linux (systemd unit) recipes. Acceptance: units/commands included, mention that unlock is via the web UI after every restart. |
+| C2 | TODO | **Installed-wheel smoke test in CI.** New job: build wheel, install into a clean venv, run `python -m secure_credentials.src.api.server` against a temp vault with `API_PORT` set, poll `/api/health`, then stop it (no orphaned process). |
+| C3 | TODO | **Static checks in CI.** Add `ruff` and `mypy` (dev extras in `pyproject.toml`), configured at a level the current code passes, scoped to `secure_credentials/src/api` and `tests` first. |
+| C4 | TODO | **Optional second factor on unlock** (TOTP via `pyotp`, off by default, `TOTP_SECRET` in environment). Only after A9 and B6 are done. |
+| C5 | TODO | **UI polish for phones:** larger tap targets, `autocomplete="off"` / `new-password` on secret inputs, show remaining auto-lock time, PWA manifest only if the user asks. Keep it dependency-free. |
+| C6 | TODO | **Triage Dependabot PRs** left from the old `main` workflow (#3 codecov, #4 checkout-6): close if superseded, merge if CI is green. Needs the user's GitHub permissions if done via `gh`. |
+| C7 | NEEDS-USER | **Release v1.3.0.** Bump `version` in `pyproject.toml` and `__version__` in `secure_credentials/__init__.py`, update README, then (user approval required) push and `git tag v1.3.0; git push origin v1.3.0`. Do this after A9, B6 and at least B7-B9. |
+| C8 | TODO | **Remove `httpx` test deprecation warning** when FastAPI/Starlette's `TestClient` supports the new client package; check on each Dependabot bump. |
 
-### P0: close real weaknesses in the current code
+### Done log
 
-1. **Online brute-force protection on `POST /api/unlock`.** There is no rate limit or lockout, so anyone who reaches the port can guess the master password at network speed. Add per-client exponential backoff and a temporary lockout; log failed attempts (time and client address only, never the guess).
-2. **Per-client sessions instead of global unlock.** Today unlocking is global state: once unlocked, any client that reaches the port can list entry names. Issue a random session token at unlock (`HttpOnly`, `Secure`, `SameSite=Strict` cookie or bearer token), require it on every `/api/*` call except health, and expire it with the idle timer.
-3. **Stop keeping the master password in process memory.** `server.py` stores `vault.master_password` at startup and `lock()` does not clear it, which defeats auto-lock. Verify it is unused, then remove it.
-4. **Credential names in URLs.** `POST /api/credentials/{name}` puts entry names into access logs. Move the name into the request body or disable uvicorn access logging.
-5. **`start-api.bat` / `start-api.sh` require `MASTER_PASSWORD` in `.env`.** This contradicts the "never stored on disk" model that `server.py` documents. Remove that requirement from the scripts and `.env.example`.
-6. **Quote handling in the web UI.** Entry names pass through `escapeHtml`, which does not escape quotes, and are then placed inside an inline `onclick='...'`. A name containing `'` breaks out of the string. Use `data-` attributes plus event listeners.
+- 2026-10-30  A1-A7, B1-B5: server rewrite (config, sessions, throttling, CSP, static UI), 26 tests.
 
-### P1: standard hardening
+---
 
-7. **Security headers** on all responses: `Content-Security-Policy` (move inline script/style to a nonce or static files), `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `frame-ancestors 'none'`.
-8. **`Cache-Control: no-store`** on every `/api/*` response so credential values are never cached by the browser or a proxy.
-9. **TLS.** On an encrypted overlay the transport is already protected. For plain LAN or loopback-proxy setups, support uvicorn `--ssl-certfile/--ssl-keyfile` via env vars (`TLS_CERT`, `TLS_KEY`) and document `tailscale serve` as the zero-config option.
-10. **Concurrency.** The backend does blocking KeePass work (key derivation) inside `async def` handlers, which stalls the event loop. Declare the handlers `def` (FastAPI runs them in a threadpool) and guard `VaultState` with a lock. Run a **single** uvicorn worker, because state is in-process.
-11. **Input limits.** Add `max_length` to `master_password`, `credential_password` and the `name` path parameter, and cap request body size.
-12. **Single source for the version.** `FastAPI(version="2.0.0")` disagrees with the package version; read it from `importlib.metadata`.
+## 4. `.env.example` template (for A8)
 
-### P2: operations and quality
+```
+# API server configuration (environment variables or a .env file in the working directory).
+# Never put MASTER_PASSWORD here: unlock happens in the web UI and is never stored.
 
-13. **Run as a service**: Task Scheduler or NSSM on Windows, a systemd unit on Linux. The unlock prompt currently needs a console, so decide whether unlock stays interactive or moves entirely to the web UI.
-14. **Make the API installable without a checkout**: done for imports and the console script; add a smoke test that runs it from an installed wheel in CI.
-15. **More tests**: auto-lock timeout, wrong credential password, rate-limit and lockout, session expiry, bind-address validation.
-16. **Static checks in CI**: ruff and mypy at a level the codebase passes today, then tighten.
-17. **Docs**: rewrite `docs/QUICKSTART.md` and `docs/FINAL_SIMPLE_PLAN.md` to be network-agnostic; fix the clone URL and install section in `README.md`.
+# Address of the private-network interface to listen on (Tailscale 100.x / fd7a:..., WireGuard,
+# ZeroTier, Yggdrasil, LAN IP). Default: 127.0.0.1 (this machine only).
+# BIND_HOST=100.101.102.103
+# Wildcard binds (0.0.0.0, ::) are refused unless ALLOW_PUBLIC_BIND=1.
+# ALLOW_PUBLIC_BIND=0
 
-## 5. Best practices for this kind of app
+# API_PORT=8080
+# Idle seconds before sessions expire and the vault locks (10-86400).
+# AUTO_LOCK_TIMEOUT=300
+# Vault file (default: ~/.secure_credentials/vault.kdbx).
+# VAULT_PATH=C:\path\to\vault.kdbx
 
-General, for any self-hosted secret-serving service:
-- **Never expose it to the public internet.** Reachability comes from a private overlay or VPN, not a port-forward.
-- **Least privilege in the API.** Read-only unless a write is needed; every added endpoint is more surface.
-- **Defence in depth.** Network boundary, then master password, then per-credential password, then idle auto-lock.
-- **Secrets in memory only as long as needed.** Clear on lock; do not log or echo them; do not put them in URLs, env files or shell history.
-- **Limit and log authentication attempts.** Throttle, back off, and record failures without recording guesses.
-- **Responses that carry secrets are never cacheable.**
-- **Transport encryption end to end.** Overlay encryption or TLS; no plain HTTP across untrusted segments.
-- **Keep it patched automatically.** Dependabot plus `pip-audit` in CI, and a release pipeline so the fix actually ships.
-- **Small, boring surface.** One server, one worker, one vault, no extra framework.
+# HTTPS directly from the server (sets Secure cookies), or COOKIE_SECURE=1 when a proxy
+# such as `tailscale serve` terminates TLS.
+# TLS_CERT=
+# TLS_KEY=
+# COOKIE_SECURE=0
+```
 
-Specific to this app:
-- The server holds a decrypted vault in a long-lived process; **idle timeout and lock-clears-memory are the main control**, so keep the timeout short and make locking drop every secret.
-- The vault file is the crown jewel: keep it outside the repo, back it up encrypted, and restrict file permissions to the service account.
-- Phones are the likely client; require the session to expire on tab close/idle and clear the clipboard after copy (already done in the UI timers).
-- Any future write endpoint must require the credential password, be rate-limited, and be off by default behind a config flag.
+---
+
+## 5. Best practices this server follows (keep them true)
+
+- Never reachable from the public internet; reachability comes from a private overlay or VPN.
+- Least privilege: read-only API; every new endpoint needs a stated reason.
+- Defence in depth: network boundary, master password, per-credential password, idle auto-lock, throttling.
+- Secrets live in memory only while needed; never in URLs, logs, env files or error messages.
+- Every response that can carry a secret is `no-store`.
+- Transport protection end to end: encrypted overlay or TLS; no plain HTTP across untrusted segments.
+- Automatic patching: Dependabot + `pip-audit` in CI + a release pipeline so fixes ship.
+- Small surface: one server, one worker, one vault, static dependency-free UI under a strict CSP.
+- The vault file is the crown jewel: keep it outside the repo, back it up (A9), restrict file permissions to the service account.

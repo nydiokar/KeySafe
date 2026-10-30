@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Password Manager</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <h1>🔐 Password Manager</h1>
+
+    <!-- Status Bar -->
+    <div class="status-bar">
+        <div id="lockStatus" class="status-locked">🔒 Locked</div>
+        <div id="timer" class="timer"></div>
+    </div>
+
+    <!-- Locked Screen -->
+    <div id="lockedScreen" class="locked-screen">
+        <div class="lock-icon">🔒</div>
+        <h2>Vault is Locked</h2>
+        <p class="hint">Enter your master password to unlock</p>
+        <div class="form-group">
+            <input type="password"
+                   id="masterPassword"
+                   placeholder="Master password"
+                   class="narrow-input">
+        </div>
+        <button id="unlockBtn" class="btn btn-primary">
+            Unlock Vault
+        </button>
+        <div id="unlockError" class="error"></div>
+    </div>
+
+    <!-- Main Content (hidden when locked) -->
+    <div id="mainContent" class="hidden">
+        <input type="text"
+               id="searchBox"
+               class="search-box"
+               placeholder="Search credentials...">
+
+        <button id="lockBtn" class="btn btn-danger mb-20">
+            🔒 Lock Vault
+        </button>
+
+        <ul id="credentialList" class="credential-list">
+            <li class="loading">Loading credentials...</li>
+        </ul>
+    </div>
+
+    <!-- Modal for credential password entry -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <h2 id="modalTitle"></h2>
+
+            <div id="passwordPrompt">
+                <div class="form-group">
+                    <label for="credPassword">Credential Password:</label>
+                    <input type="password"
+                           id="credPassword"
+                           placeholder="Enter password to unlock">
+                </div>
+                <button id="retrieveBtn" class="btn btn-primary">
+                    Unlock
+                </button>
+                <button id="cancelBtn" class="btn btn-secondary">
+                    Cancel
+                </button>
+                <div id="error" class="error"></div>
+            </div>
+
+            <div id="passwordDisplay" class="hidden">
+                <div class="password-display" id="passwordValue"></div>
+                <button id="copyBtn" class="btn btn-copy">
+                    📋 Copy to Clipboard
+                </button>
+                <button id="closeBtn" class="btn btn-secondary full-width">
+                    Close
+                </button>
+                <div id="copySuccess" class="success"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

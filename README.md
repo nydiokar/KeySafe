@@ -28,7 +28,7 @@ python -m venv .venv; .\.venv\Scripts\Activate.ps1; pip install https://github.c
 ```
 
 - GUI: `python -m secure_credentials.run_app`
-- API: set `YGGDRASIL_IP` (and optionally `API_PORT`, `VAULT_PATH`) in the environment or a `.env`, then run `secure-credentials-api`
+- API: set `BIND_HOST` (private-network address; default loopback) and optionally `API_PORT`, `VAULT_PATH` in the environment or a `.env`, run `secure-credentials-api`, then unlock in the browser. See `docs/FASTAPI_ROADMAP.md`
 
 ### Option 2: From Source
 
