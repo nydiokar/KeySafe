@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.3.2
 
 - GUI theme moved from the legacy `darkly` to `bootstrap-dark` (a saved `darkly` setting is migrated).
 
