@@ -117,6 +117,7 @@ Status values: `TODO`, `DONE`, `WONTDO`, `BLOCKED`, `NEEDS-USER`. Priority: P0 m
 - 2026-10-30  A1-A7, B1-B5: server rewrite (config, sessions, throttling, CSP, static UI), 26 tests.
 - 2026-10-31  A9, B6-B10, C1-C3, C5, C7: vault sync/backup/service/quickstart docs, `TRUSTED_PROXY`, cross-origin check, body cap, audit log, thread-safe stores, read-only retrieval (backend previously wrote the vault on every read), log scrub, quote-name rejection, launcher/direct_gui crash fix, ruff + mypy + wheel-smoke CI, v1.3.0.
 - 2026-10-31  C4 dropped (see table).
+- 2026-10-31  v1.3.1: GUI fixes found in user testing (global `master.hash` check wrongly rejecting a valid vault password, lock bypass via Escape/tray, dead clipboard auto-clear, settings wiped on close, shortcuts firing in the search box, cancelled prompt leaving an empty window).
 
 ---
 
