@@ -56,7 +56,8 @@ def test_gui_builds_its_window(tmp_path: Path, monkeypatch) -> None:  # type: ig
         app = CredentialManagerGUI(security_manager=SecurityManager(), vault_path=str(tmp_path / "v.kdbx"))
     except tkinter.TclError as exc:
         pytest.skip(f"no display available: {exc}")
-    app.root.destroy()
+    assert app.closed  # cancelled password prompt must tear the window down, not leave an empty app
+    app.run()  # returns immediately instead of showing an empty window
 
 
 def test_gui_loads_vault_regardless_of_global_master_hash(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
@@ -84,5 +85,55 @@ def test_gui_loads_vault_regardless_of_global_master_hash(tmp_path: Path, monkey
         pytest.skip(f"no display available: {exc}")
     try:
         assert len(app.tree.get_children()) == 1
+    finally:
+        app.root.destroy()
+
+
+def test_gui_lock_clipboard_and_settings(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    import json
+    import tkinter
+
+    import pytest
+
+    from secure_credentials.src.keepass_backend import KeePassHandler
+    from secure_credentials.src.security import SecurityManager
+    from secure_credentials.src.ui import gui as gui_mod
+    from secure_credentials.src.ui.gui import CredentialManagerGUI
+
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    monkeypatch.setenv("HOME", str(tmp_path))
+    cfg_dir = tmp_path / ".secure_credentials"
+    cfg_dir.mkdir()
+    (cfg_dir / "gui_config.json").write_text(json.dumps({"auto_lock_timeout": 900, "theme": "darkly"}))
+
+    vault = str(tmp_path / "v.kdbx")
+    assert KeePassHandler(vault).create_database("vault-pw-123")
+
+    clip: dict[str, str] = {"v": ""}
+    monkeypatch.setattr(gui_mod.pyperclip, "copy", lambda v: clip.__setitem__("v", v))
+    monkeypatch.setattr(gui_mod.pyperclip, "paste", lambda: clip["v"])
+    monkeypatch.setattr(CredentialManagerGUI, "get_master_password", lambda self: "vault-pw-123")
+    monkeypatch.setattr(CredentialManagerGUI, "setup_system_tray", lambda self: None)
+    try:
+        app = CredentialManagerGUI(security_manager=SecurityManager(), vault_path=vault)
+    except tkinter.TclError as exc:
+        pytest.skip(f"no display available: {exc}")
+    try:
+        assert app.auto_lock_timeout == 900  # saved setting is honoured at startup
+
+        app.copy_secret("s3cret")
+        app.clear_clipboard()
+        assert clip["v"] == ""  # clipboard auto-clear actually clears our secret
+        clip["v"] = "something else"
+        app.copied_secret = "s3cret"
+        app.clear_clipboard()
+        assert clip["v"] == "something else"  # ...and leaves unrelated contents alone
+
+        app.lock()
+        app.show_main_window()  # tray "Show" must not bypass the lock
+        assert app.is_locked and app.root.state() == "withdrawn"
+
+        app.save_window_state()
+        assert json.loads((cfg_dir / "gui_config.json").read_text())["auto_lock_timeout"] == 900
     finally:
         app.root.destroy()

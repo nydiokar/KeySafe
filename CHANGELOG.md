@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.3.1
+
+GUI fixes:
+- Opening an existing vault no longer fails with "Invalid master password" and an empty list. The GUI also checked the password against a global `~/.secure_credentials/master.hash` that has nothing to do with the vault; the vault password is now the only check.
+- Cancelling the master-password prompt now exits instead of leaving an empty window.
+- The lock screen can no longer be dismissed with Escape or the close button, and tray "Show" no longer bypasses the lock. Ctrl+L now locks (it was shown in the menu but not bound).
+- Delete, Ctrl+C and Ctrl+E typed in the search box no longer trigger credential actions.
+- Clipboard auto-clear never fired (it compared against values that are never loaded); it now clears the copied secret after 30 s, also for copies from the details dialog.
+- Saved auto-lock timeout is applied at startup (it was reset to 5 minutes), and closing the window no longer wipes saved settings (theme, timeout, clipboard) from `gui_config.json`.
+
 ## 1.3.0
 
 API server (breaking changes for API users):

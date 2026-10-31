@@ -4,6 +4,7 @@ import pyperclip
 import datetime
 import json
 import os
+import tkinter
 from tkinter import messagebox
 import logging
 import subprocess
@@ -65,8 +66,10 @@ class CredentialManagerGUI:
         
         # Auto-lock variables
         self.last_activity = datetime.datetime.now()
-        self.auto_lock_timeout = 300  # 5 minutes
+        self.auto_lock_timeout = self.load_auto_lock_timeout()
         self.is_locked = False
+        self.closed = False
+        self.copied_secret = None
 
         # Visibility tracking
         self.visibility_needed = False
@@ -76,6 +79,7 @@ class CredentialManagerGUI:
         self.setup_ui()
         self.setup_shortcuts()
         self.setup_auto_lock()
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
         
         # Update status for master password prompt
         self.update_status("Waiting for master password...")
@@ -89,7 +93,8 @@ class CredentialManagerGUI:
                     self.icon.stop()
                 except:
                     pass
-            self.root.quit()
+            self.closed = True
+            self.root.destroy()
             return
             
         # The vault itself is the only master-password authority; the dialog
@@ -151,6 +156,11 @@ class CredentialManagerGUI:
     def show_main_window(self):
         """Explicitly show the main window - used for direct access from launcher or system tray"""
         self.logger.info("Explicitly showing main window")
+        if self.is_locked:
+            if self.lock_window.winfo_exists():
+                self.lock_window.lift()
+                self.lock_window.focus_force()
+            return
         if hasattr(self, 'root') and self.root.winfo_exists():
             # Use multiple techniques to ensure visibility
             self.root.deiconify()
@@ -212,8 +222,17 @@ class CredentialManagerGUI:
         except ImportError:
             print("System tray support not available. Install pystray package for system tray functionality.")
             
+    def load_auto_lock_timeout(self):
+        """Saved idle timeout in seconds (minimum 60), default 300."""
+        try:
+            return max(60, int(self.load_setting('auto_lock_timeout', 300)))
+        except (TypeError, ValueError):
+            return 300
+
     def lock(self):
         """Lock the application."""
+        if self.is_locked:
+            return
         self.is_locked = True
         self.root.withdraw()  # Hide main window
         
@@ -248,7 +267,8 @@ class CredentialManagerGUI:
         
         # Bind unlock event
         self.lock_window.bind('<Return>', lambda e: self.unlock_with_password())
-        self.lock_window.bind('<Escape>', lambda e: self.lock_window.destroy())
+        # The lock window must not be dismissable without the password
+        self.lock_window.protocol("WM_DELETE_WINDOW", lambda: None)
         
         password_entry.focus_set()
         
@@ -295,12 +315,11 @@ class CredentialManagerGUI:
             x = int(parts[1])
             y = int(parts[2])
             
-            config = {
-                'width': width,
-                'height': height,
-                'x': x,
-                'y': y
-            }
+            config = {}
+            if os.path.exists(config_path):
+                with open(config_path, 'r') as f:
+                    config = json.load(f)
+            config.update({'width': width, 'height': height, 'x': x, 'y': y})
             
             with open(config_path, 'w') as f:
                 json.dump(config, f)
@@ -346,11 +365,20 @@ class CredentialManagerGUI:
             self.logger.error(f"Error during application shutdown: {str(e)}")
             
     def setup_shortcuts(self):
+        def unless_typing(action):
+            # Delete/Ctrl+C inside the search box must edit text, not act on credentials
+            def handler(event):
+                if isinstance(event.widget, tkinter.Entry) or isinstance(event.widget, ttk.Entry):
+                    return None
+                action()
+            return handler
+
         self.root.bind('<Control-n>', lambda e: self.add_credential())
-        self.root.bind('<Control-e>', lambda e: self.edit_credential())
-        self.root.bind('<Delete>', lambda e: self.delete_credential())
-        self.root.bind('<Control-c>', lambda e: self.copy_to_clipboard())
+        self.root.bind('<Control-e>', unless_typing(self.edit_credential))
+        self.root.bind('<Delete>', unless_typing(self.delete_credential))
+        self.root.bind('<Control-c>', unless_typing(self.copy_to_clipboard))
         self.root.bind('<Control-f>', lambda e: self.search_entry.focus())
+        self.root.bind('<Control-l>', lambda e: self.lock())
         
     def setup_ui(self):
         # Create main container
@@ -1203,12 +1231,8 @@ class CredentialManagerGUI:
             
         credential = self.keepass.get_credential(name, password)  # Use credential password
         if credential:
-            pyperclip.copy(credential['value'])
+            self.copy_secret(credential['value'])
             self.update_status(f"Copied credential: {name}")
-            
-            # Schedule clipboard clearing if enabled
-            if self.clear_clipboard_var.get():
-                self.root.after(30000, self.clear_clipboard)  # 30 seconds
         else:
             self.update_status("Failed to retrieve credential - incorrect password")
 
@@ -1241,6 +1265,8 @@ class CredentialManagerGUI:
 
     def run(self):
         """Run the application."""
+        if self.closed:
+            return
         try:
             self.root.mainloop()
         finally:
@@ -1383,7 +1409,7 @@ class CredentialManagerGUI:
         
         # Copy button
         ttk.Button(main_frame, text="Copy to Clipboard", 
-                  command=lambda: [pyperclip.copy(credential['value']), 
+                  command=lambda: [self.copy_secret(credential['value']), 
                                  self.update_status(f"Copied credential: {credential['name']}")],
                   style='primary.TButton').pack(fill=X, pady=(10, 0))
         
@@ -1397,13 +1423,18 @@ class CredentialManagerGUI:
         
         dialog.wait_window()
 
+    def copy_secret(self, value):
+        """Copy a secret and schedule clearing it if the setting is on."""
+        pyperclip.copy(value)
+        self.copied_secret = value
+        if self.clear_clipboard_var.get():
+            self.root.after(30000, self.clear_clipboard)  # 30 seconds
+
     def clear_clipboard(self):
-        """Clear the clipboard contents."""
-        current = pyperclip.paste()
-        # Only clear if it still contains our last copied value
-        if any(cred.get('value', '') == current 
-              for cred in self.keepass.get_all_credentials().values()):
+        """Clear the clipboard if it still holds the secret we copied."""
+        if self.copied_secret is not None and pyperclip.paste() == self.copied_secret:
             pyperclip.copy('')
+        self.copied_secret = None
 
     def manual_check_for_updates(self):
         """Manually trigger an update check."""
