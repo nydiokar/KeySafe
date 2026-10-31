@@ -57,3 +57,32 @@ def test_gui_builds_its_window(tmp_path: Path, monkeypatch) -> None:  # type: ig
     except tkinter.TclError as exc:
         pytest.skip(f"no display available: {exc}")
     app.root.destroy()
+
+
+def test_gui_loads_vault_regardless_of_global_master_hash(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """The vault password is the only authority; a stale ~/.secure_credentials/master.hash must not block loading."""
+    import tkinter
+
+    import pytest
+
+    from secure_credentials.src.keepass_backend import KeePassHandler
+    from secure_credentials.src.security import SecurityManager
+    from secure_credentials.src.ui.gui import CredentialManagerGUI
+
+    vault = str(tmp_path / "v.kdbx")
+    handler = KeePassHandler(vault)
+    assert handler.create_database("vault-pw-123")
+    assert handler.add_credential("alpha", "secret", "password", "pw1")
+
+    security = SecurityManager()
+    monkeypatch.setattr(security, "verify_master_password", lambda password: False)
+    monkeypatch.setattr(CredentialManagerGUI, "get_master_password", lambda self: "vault-pw-123")
+    monkeypatch.setattr(CredentialManagerGUI, "setup_system_tray", lambda self: None)
+    try:
+        app = CredentialManagerGUI(security_manager=security, vault_path=vault)
+    except tkinter.TclError as exc:
+        pytest.skip(f"no display available: {exc}")
+    try:
+        assert len(app.tree.get_children()) == 1
+    finally:
+        app.root.destroy()

@@ -92,15 +92,8 @@ class CredentialManagerGUI:
             self.root.quit()
             return
             
-        # Update status for database operations
-        self.update_status("Verifying master password...")
-        if not self.security_manager.verify_master_password(self.master_password):
-            self.logger.error("Invalid master password")
-            self.update_status("Error: Invalid master password")
-            messagebox.showerror("Error", "Invalid master password")
-            self.root.quit()
-            return
-        
+        # The vault itself is the only master-password authority; the dialog
+        # already verified/created it via KeePassHandler.
         # Load credentials after password is verified
         self.update_status("Loading credentials...")
         self.load_credentials()
