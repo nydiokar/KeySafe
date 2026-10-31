@@ -8,9 +8,8 @@ echo 1. Run normally (through launcher)
 echo 2. Run directly (bypass launcher)
 echo 3. Debug mode (aggressive window visibility)
 echo 4. Test window only (verify basic window works)
-echo 5. Run with Jupyter notebook (for interactive debugging)
-echo 6. View logs (check for errors)
-echo 7. Exit
+echo 5. View logs (check for errors)
+echo 6. Exit
 echo.
 
 set /p option="Enter option number: "
@@ -28,9 +27,6 @@ if "%option%"=="1" (
     echo Testing basic window functionality...
     python -m secure_credentials.run_app test_window
 ) else if "%option%"=="5" (
-    echo Launching Jupyter notebook for interactive debugging...
-    jupyter notebook secure_credentials\debug_gui.ipynb
-) else if "%option%"=="6" (
     echo Log files:
     echo.
     if exist "secure_credentials_debug.log" (
@@ -60,7 +56,7 @@ if "%option%"=="1" (
     )
     echo.
     pause
-) else if "%option%"=="7" (
+) else if "%option%"=="6" (
     exit
 ) else (
     echo Invalid option selected

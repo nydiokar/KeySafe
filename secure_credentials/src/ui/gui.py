@@ -20,6 +20,10 @@ except ImportError:
     from secure_credentials.src.pass_manager import CredentialType
     from secure_credentials.src.keepass_backend import KeePassHandler
 
+DEFAULT_THEME = "bootstrap-dark"
+LEGACY_THEMES = {"darkly": DEFAULT_THEME}  # ttkbootstrap 2 legacy names, removed in 3.0
+
+
 class CredentialManagerGUI:
     def __init__(self, security_manager=None, vault_path=None):
         # Initialize icon to None first
@@ -38,7 +42,7 @@ class CredentialManagerGUI:
         self.keepass = KeePassHandler(vault_path=vault_path)
         
         # Initialize root window
-        self.root = ttk.Window(themename="darkly")
+        self.root = ttk.Window(themename=self.load_theme())
         self.root.title("Secure Credential Manager")
         self.root.geometry("1000x700")
         
@@ -222,6 +226,11 @@ class CredentialManagerGUI:
         except ImportError:
             print("System tray support not available. Install pystray package for system tray functionality.")
             
+    def load_theme(self):
+        """Saved theme name, with legacy names mapped to their 2.0 equivalent."""
+        saved = self.load_setting('theme', DEFAULT_THEME)
+        return LEGACY_THEMES.get(saved, saved)
+
     def load_auto_lock_timeout(self):
         """Saved idle timeout in seconds (minimum 60), default 300."""
         try:
@@ -441,8 +450,8 @@ class CredentialManagerGUI:
         appearance_menu = ttk.Menu(settings_menu, tearoff=0)
         settings_menu.add_cascade(label="Theme", menu=appearance_menu)
         
-        self.theme_var = ttk.StringVar(value=self.load_setting('theme', 'darkly'))
-        for theme in self.root.style.theme_names():
+        self.theme_var = ttk.StringVar(value=self.root.style.theme.name)
+        for theme in (t for t in self.root.style.theme_names() if t not in LEGACY_THEMES):
             appearance_menu.add_radiobutton(
                 label=theme.capitalize(),
                 value=theme,
@@ -612,7 +621,7 @@ class CredentialManagerGUI:
                     'auto_update': True,
                     'auto_lock_timeout': 300,  # 5 minutes
                     'clear_clipboard': True,
-                    'theme': 'darkly',
+                    'theme': DEFAULT_THEME,
                     'width': 1000,
                     'height': 700,
                     'x': 100,
@@ -625,8 +634,8 @@ class CredentialManagerGUI:
                 self.auto_update_var.set(True)
                 self.auto_lock_timeout = 300
                 self.clear_clipboard_var.set(True)
-                self.theme_var.set('darkly')
-                self.root.style.theme_use('darkly')
+                self.theme_var.set(DEFAULT_THEME)
+                self.root.style.theme_use(DEFAULT_THEME)
                 
                 messagebox.showinfo("Success", "Settings have been reset to defaults.")
             except Exception as e:

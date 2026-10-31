@@ -121,7 +121,7 @@ def test_window():
     
     try:
         # Initialize root window
-        root = ttk.Window(themename="darkly")
+        root = ttk.Window(themename="bootstrap-dark")
         root.title("Test Window")
         
         # Set window size and position

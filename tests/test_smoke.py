@@ -104,6 +104,7 @@ def test_gui_lock_clipboard_and_settings(tmp_path: Path, monkeypatch) -> None:  
     monkeypatch.setenv("HOME", str(tmp_path))
     cfg_dir = tmp_path / ".secure_credentials"
     cfg_dir.mkdir()
+    # legacy theme name must be migrated
     (cfg_dir / "gui_config.json").write_text(json.dumps({"auto_lock_timeout": 900, "theme": "darkly"}))
 
     vault = str(tmp_path / "v.kdbx")
@@ -120,6 +121,7 @@ def test_gui_lock_clipboard_and_settings(tmp_path: Path, monkeypatch) -> None:  
         pytest.skip(f"no display available: {exc}")
     try:
         assert app.auto_lock_timeout == 900  # saved setting is honoured at startup
+        assert app.root.style.theme.name == "bootstrap-dark"  # legacy 'darkly' migrated
 
         app.copy_secret("s3cret")
         app.clear_clipboard()

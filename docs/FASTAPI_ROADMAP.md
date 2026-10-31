@@ -77,7 +77,7 @@ Status values: `TODO`, `DONE`, `WONTDO`, `BLOCKED`, `NEEDS-USER`. Priority: P0 m
 | A5 | DONE | Remove `MASTER_PASSWORD` requirement from start scripts |
 | A6 | DONE | Quote-safe UI rendering |
 | A7 | DONE | Generic `BIND_HOST`, loopback default, wildcard refusal |
-| A8 | NEEDS-USER | Replace `.env.example` with the new template (agents are denied access to `.env*` files). The template is in section 4. Also remove `MASTER_PASSWORD` / `YGGDRASIL_IP` lines from your real `.env`. |
+| A8 | DONE | `.env.example` replaced with the new template by the user (2026-10-31); `MASTER_PASSWORD` / `YGGDRASIL_IP` removed from the real `.env`. |
 | A9 | DONE | **Vault location and sync design.** The server reads a `.kdbx` on its own disk; edits made in the desktop GUI on another machine do not reach it. Write `docs/VAULT_SYNC.md` choosing one model and documenting setup: (a) vault lives only on the server host (GUI used there), (b) one-way sync PC -> server (e.g. Syncthing or scheduled copy; server picks up changes on next unlock), (c) other. Include a **backup** procedure (encrypted copy, restore test). Acceptance: doc exists, linked from README; if (b) is chosen, the server reopens the file on each unlock (already true: `VaultGuard.open` builds a fresh handler) and a test proves a replaced vault file is seen after re-unlock. Default recommendation if no preference is known: (b). |
 
 ### P1
@@ -104,13 +104,13 @@ Status values: `TODO`, `DONE`, `WONTDO`, `BLOCKED`, `NEEDS-USER`. Priority: P0 m
 | C3 | DONE | **Static checks in CI.** Add `ruff` and `mypy` (dev extras in `pyproject.toml`), configured at a level the current code passes, scoped to `secure_credentials/src/api` and `tests` first. |
 | C4 | WONTDO | Optional TOTP second factor. Dropped for 1.3.0: the private network, master password, per-credential password, throttling and idle lock are already four layers, and a second factor adds lockout risk and secret handling (TOTP seed) for one user. Reopen only if the server is ever exposed beyond a private overlay. |
 | C5 | DONE | Phone UI: `autocomplete` attributes on secret inputs, revealed values auto-hide after 30 s and on lock, lock clears list and modal. PWA/offline intentionally not done. |
-| C6 | TODO | **Triage Dependabot PRs** left from the old `main` workflow (#3 codecov, #4 checkout-6): close if superseded, merge if CI is green. Needs the user's GitHub permissions if done via `gh`. |
+| C6 | DONE | Dependabot PRs #3 and #4 closed by the user. |
 | C7 | DONE | Release v1.3.0 (version bumped, CHANGELOG.md added, release notes taken from the changelog). |
-| C8 | TODO | **Remove `httpx` test deprecation warning** when FastAPI/Starlette's `TestClient` supports the new client package; check on each Dependabot bump. |
+| C8 | BLOCKED | Remove the `httpx` test deprecation warning once FastAPI/Starlette `TestClient` supports the new client package. Upstream-only; check on each Dependabot bump. Does not affect the release. |
 
-| C9 | TODO | **ttkbootstrap legacy theme.** The GUI uses theme `darkly`, which ttkbootstrap 2 reports as a legacy name planned for removal in 3.0. Pick an equivalent 2.0 theme from `Style.theme_names()` in `secure_credentials/src/ui/gui.py` and `run_app.py`, check the GUI visually, run tests. |
-| C10 | TODO | **Repo clutter.** `run_pass_manager.bat` option 5 references a missing notebook; `create_notebook.py`, `installer.nsi` (git-ignored, v1.0.0) and `build.bat` pauses are stale. Remove or fix what is unused (confirm `create_blank_db.py` is still needed first). |
-| C11 | TODO | **Triage global-lockout trade-off.** 12 failed unlocks from anywhere lock *everyone*, including the owner, for up to 5 minutes (denial of service by design: it caps guessing). If that proves annoying on a private network, make the global limit configurable (`GLOBAL_LOCKOUT=0` to disable) and keep the per-client limit. |
+| C9 | DONE | GUI theme moved from legacy `darkly` to `bootstrap-dark` (`DEFAULT_THEME` in `gui.py`); a saved `darkly` setting is migrated; legacy names hidden from the Theme menu; checked with a screenshot. |
+| C10 | DONE | Removed `create_notebook.py`, `create_blank_db.py` and the unused `blank_database.kdbx`; dropped the missing-notebook option from `run_pass_manager.bat`; `build.bat` no longer pauses or builds from the stale `installer.nsi` (local git-ignored file, safe to delete). |
+| C11 | WONTDO | Global lockout stays as is: it caps distributed guessing and the owner has not been affected. Reopen if it locks the owner out in practice (add `GLOBAL_LOCKOUT=0`, keep the per-client limit). |
 
 ### Done log
 
@@ -118,6 +118,7 @@ Status values: `TODO`, `DONE`, `WONTDO`, `BLOCKED`, `NEEDS-USER`. Priority: P0 m
 - 2026-10-31  A9, B6-B10, C1-C3, C5, C7: vault sync/backup/service/quickstart docs, `TRUSTED_PROXY`, cross-origin check, body cap, audit log, thread-safe stores, read-only retrieval (backend previously wrote the vault on every read), log scrub, quote-name rejection, launcher/direct_gui crash fix, ruff + mypy + wheel-smoke CI, v1.3.0.
 - 2026-10-31  C4 dropped (see table).
 - 2026-10-31  v1.3.1: GUI fixes found in user testing (global `master.hash` check wrongly rejecting a valid vault password, lock bypass via Escape/tray, dead clipboard auto-clear, settings wiped on close, shortcuts firing in the search box, cancelled prompt leaving an empty window).
+- 2026-10-31  C9, C10 done; A8 and C6 confirmed by the user; C8 blocked upstream; C11 dropped. No open work items besides C8.
 
 ---
 
