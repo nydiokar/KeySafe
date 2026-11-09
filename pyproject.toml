@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 dependencies = [
-    "ttkbootstrap>=2.2.6",
+    "ttkbootstrap>=2.2.7",
     "pykeepass>=4.2.0",
     "pyperclip>=1.11.0",
     "pillow>=13.0.0",
