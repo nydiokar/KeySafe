@@ -29,6 +29,13 @@ The checked-in PM2 configuration binds to localhost and sets `WEB_VAULT_WRITES=0
 
 For a UI rollback, stop `keysafe`, switch the deployment checkout to the previously deployed revision, and restart the existing process using `pm2 restart keysafe`. Restore the vault only if you independently establish that the file itself needs recovery. Follow [vault restore instructions](VAULT_SYNC.md).
 
+## Deployment verification
+
+- Deployed application commit `95c7341` to the existing `keysafe` PM2 process and saved the PM2 process list.
+- Confirmed the service returned a healthy response and served Vaultroom on its existing loopback port. The initial session was locked and unauthenticated workspace requests returned HTTP 401.
+- Compared the live KDBX with the private encrypted pre-cutover copy after restart. The two files matched byte for byte. The live file has owner-only read and write permissions.
+- The API regression suite passed 42 tests. Credential retrieval was exercised with disposable data. Confirmation with a real credential requires the vault owner to sign in.
+
 ## Follow-up review
 
 An independent defensive security review is planned. The [review handoff](VAULTROOM_SECURITY_REVIEW.md) defines the scope and reporting requirements.
