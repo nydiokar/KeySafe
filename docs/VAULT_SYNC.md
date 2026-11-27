@@ -1,7 +1,7 @@
 # Vault location, sync and backup
 
 The API server reads one `.kdbx` file from its own disk (`VAULT_PATH`, default
-`~/.secure_credentials/vault.kdbx`). The server **never writes** to it: retrieving a credential
+`~/.secure_credentials/vault.kdbx`). The server opens it read-only by default. Retrieving a credential
 leaves the file byte-for-byte unchanged (covered by a test). Every unlock opens the file fresh,
 so a replaced file is picked up on the next unlock.
 
@@ -25,6 +25,30 @@ Alternatives:
 
 Do not put the vault in the git repository (`*.kdbx` is git-ignored), in a public cloud folder, or in a
 folder served by any web server.
+
+## Server-owned vault with web writes
+
+Set `WEB_VAULT_WRITES=1` only for a local file owned by one server. Give the service account
+write access to the vault directory and stop desktop editors and sync receivers from targeting
+the same live file. Vaultroom uses an advisory file lock between cooperating server processes
+and rejects changes based on stale revisions. Desktop KeePass and third-party sync clients
+can replace files independently of that lock, so use the default read-only configuration
+for a shared or mirrored file. Server sessions are process-local. Run a single worker.
+
+Each successful web mutation validates a staged KDBX and atomically replaces the live file.
+It keeps the preceding encrypted copy alongside it as `<name>.previous.kdbx`. Deleting an
+item moves it to the KeePass recycle bin. Edits save KeePass entry history. The web
+workspace's Settings can download the current encrypted KDBX in both modes.
+
+To restore, stop the server, copy the backup to a scratch file, open it with the master
+password, and verify at least one credential with its own entry password. Preserve a copy
+of the current live file before replacing it with the verified backup, then restart the server.
+
+Web import accepts a JSON array of up to 20 records per batch within a 16,384-byte request.
+Each record needs `name`, `type`, `secret`, and `credential_password`. Supported types are
+`login`, `key`, `note`, `recovery`, and `other`. Optional fields are `account`, `tag`,
+`issue`, and `notes`. Review the duplicates and confirm before committing. A conflict
+rejects the whole batch. The input file contains plaintext, so handle it as sensitive data.
 
 ## Backup
 

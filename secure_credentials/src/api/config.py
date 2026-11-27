@@ -13,6 +13,7 @@ class Settings(BaseModel):
     port: int = Field(default=8080, ge=1, le=65535)
     auto_lock_seconds: int = Field(default=300, ge=10, le=86400)
     vault_path: str | None = None
+    web_writes: bool = False
     allow_public_bind: bool = False
     cookie_secure: bool = False
     trusted_proxy: bool = False
@@ -55,6 +56,7 @@ def load_settings(env: Mapping[str, str]) -> Settings:
         port=int(env.get("API_PORT") or 8080),
         auto_lock_seconds=int(env.get("AUTO_LOCK_TIMEOUT") or 300),
         vault_path=env.get("VAULT_PATH") or None,
+        web_writes=_flag(env.get("WEB_VAULT_WRITES")),
         allow_public_bind=allow_public,
         cookie_secure=_flag(env.get("COOKIE_SECURE")) or bool(tls_cert),
         trusted_proxy=_flag(env.get("TRUSTED_PROXY")),

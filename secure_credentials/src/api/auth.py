@@ -59,7 +59,9 @@ class LoginThrottle:
                 failures = 0
             failures += 1
             over: int = failures - self._free
-            delay: float = min(2.0 ** (over - 1), self._max_delay) if over > 0 else 0.0
+            delay = 0.0
+            if over > 0 and self._max_delay > 0:
+                delay = self._max_delay if over - 1 >= math.log2(self._max_delay) else 2.0 ** (over - 1)
             self._state[key] = (failures, now + delay, now)
             if len(self._state) > self._max_keys:
                 oldest: str = min(self._state, key=lambda k: self._state[k][2])
@@ -78,6 +80,7 @@ class SessionStore:
         self._clock: Clock = clock
         self._mutex: threading.Lock = threading.Lock()
         self._last_seen: dict[str, float] = {}
+        self._timeouts: dict[str, int] = {}
 
     def create(self) -> str:
         token: str = secrets.token_urlsafe(32)
@@ -93,8 +96,9 @@ class SessionStore:
         with self._mutex:
             last: float | None = self._last_seen.get(key)
             now: float = self._clock()
-            if last is None or now - last > self._idle:
+            if last is None or now - last >= self._timeouts.get(key, self._idle):
                 self._last_seen.pop(key, None)
+                self._timeouts.pop(key, None)
                 return False
             self._last_seen[key] = now
             return True
@@ -104,20 +108,33 @@ class SessionStore:
         if not token:
             return None
         with self._mutex:
-            last: float | None = self._last_seen.get(_digest(token))
+            key = _digest(token)
+            last: float | None = self._last_seen.get(key)
             if last is None:
                 return None
-            left: int = int(self._idle - (self._clock() - last))
+            left = math.ceil(self._timeouts.get(key, self._idle) - (self._clock() - last))
             return left if left > 0 else None
+
+    def set_timeout(self, token: str, seconds: int) -> None:
+        with self._mutex:
+            key = _digest(token)
+            if key in self._last_seen:
+                self._timeouts[key] = seconds
+
+    def timeout(self, token: str | None) -> int:
+        with self._mutex:
+            return self._timeouts.get(_digest(token), self._idle) if token else self._idle
 
     def revoke_all(self) -> None:
         with self._mutex:
             self._last_seen.clear()
+            self._timeouts.clear()
 
     def purge(self) -> int:
         """Drop expired sessions; return how many remain."""
         with self._mutex:
             now: float = self._clock()
-            for key in [k for k, t in self._last_seen.items() if now - t > self._idle]:
+            for key in [k for k, t in self._last_seen.items() if now - t >= self._timeouts.get(k, self._idle)]:
                 del self._last_seen[key]
+                self._timeouts.pop(key, None)
             return len(self._last_seen)

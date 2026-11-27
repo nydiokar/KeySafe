@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.4.0
+
+- Vaultroom replaces the web credential list with a searchable workspace, type filters, favorites,
+  protected notes, review reminders, a password generator, and recent activity.
+- Web writes are opt-in for a server-owned vault. Edits and imports use revision checks,
+  verified atomic KeePass saves, and an encrypted previous copy. Deletion uses the KeePass recycle bin.
+- Settings supports an encrypted backup download and a per-session auto-lock limit.
+- Run `python -m secure_credentials.src.api.preview` to try the complete release with a disposable vault.
+
 ## 1.3.2
 
 - GUI theme moved from the legacy `darkly` to `bootstrap-dark` (a saved `darkly` setting is migrated).

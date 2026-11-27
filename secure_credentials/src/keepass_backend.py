@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from collections.abc import Iterator
 import logging
 import datetime
 from typing import Optional, Dict, Any
@@ -7,6 +8,7 @@ import shutil
 import sys
 from pykeepass import PyKeePass
 from pykeepass.exceptions import CredentialsError
+from pykeepass.entry import Entry
 from pykeepass import create_database
 import hashlib
 import hmac
@@ -31,6 +33,20 @@ def invalid_name_reason(name: str) -> Optional[str]:
     if '"' in name:
         return 'Name cannot contain a double quote (")'
     return None
+
+
+def active_entries(database: PyKeePass) -> Iterator[Entry]:
+    """Exclude entries in the KeePass recycle bin and its descendants."""
+    recycle_bin = database.recyclebin_group
+    if recycle_bin is None:
+        yield from database.entries
+        return
+    for entry in database.entries:
+        group = entry.group
+        while group is not None and group.uuid != recycle_bin.uuid:
+            group = group.parentgroup
+        if group is None:
+            yield entry
 
 
 class KeePassHandler:
@@ -231,25 +247,7 @@ class KeePassHandler:
                 self.logger.warning(f"Rejected credential name: {reason}")
                 return False
 
-            # Get appropriate group
-            group = self.kp.find_groups(name=cred_type.title(), first=True)
-            if not group:
-                group = self.kp.root_group
-
-            # Hash the credential password before storing
-            password_hash = self._hash_credential_password(credential_password)
-            encrypted_value = self._encrypt_value(value, credential_password)
-            
-            # Create entry with credential-specific password (stored as hash)
-            self.kp.add_entry(
-                destination_group=group,
-                title=name,
-                username="",  # We don't use username in our simple model
-                password=encrypted_value,
-                url="",
-                notes=f"Type: {cred_type}\nCreated: {datetime.datetime.now().isoformat()}\nCredential Password Hash: {password_hash}"
-            )
-            
+            self.build_protected_entry(self.kp, name, value, cred_type, credential_password)
             self.kp.save()
             self.logger.info("Added credential")
             return True
@@ -257,6 +255,33 @@ class KeePassHandler:
         except Exception as e:
             self.logger.error(f"Failed to add credential: {str(e)}")
             return False
+
+    def verify_entry_password(self, entry: Entry, password: str) -> bool:
+        for line in (entry.notes or "").splitlines():
+            key, _, value = line.partition(":")
+            if key.strip().lower() == "credential password hash":
+                return self._verify_credential_password(password, value.strip())
+        return False
+
+    def read_entry_secret(self, entry: Entry, password: str) -> Optional[str]:
+        if not self.verify_entry_password(entry, password):
+            return None
+        return self._decrypt_value(entry.password, password)
+
+    def build_protected_entry(
+        self, database: PyKeePass, name: str, value: str, cred_type: str, password: str
+    ) -> Entry:
+        group = database.find_groups(name=cred_type.title(), first=True) or database.root_group
+        password_hash = self._hash_credential_password(password)
+        return database.add_entry(
+            destination_group=group,
+            title=name,
+            username="",
+            password=self._encrypt_value(value, password),
+            url="",
+            notes=f"Type: {cred_type}\nCreated: {datetime.datetime.now().isoformat()}\n"
+                  f"Credential Password Hash: {password_hash}",
+        )
 
     def get_credential(
         self, name: str, credential_password: str, persist: bool = True
@@ -270,27 +295,12 @@ class KeePassHandler:
             if not self.kp:
                 return None  # Database must be opened first with master password
 
-            entry = self.kp.find_entries(title=name, first=True)
+            entry = next((entry for entry in active_entries(self.kp) if entry.title == name), None)
             if not entry:
                 return None
 
-            # Verify credential password
             notes = entry.notes or ""
-            stored_hash = None
-            for line in notes.splitlines():
-                parts = line.split(":", 1)
-                if len(parts) != 2:
-                    continue
-                key = parts[0].strip().lower()
-                value = parts[1].strip()
-                if key == "credential password hash":
-                    stored_hash = value
-                    break
-            if not stored_hash:
-                self.logger.warning("No credential password hash found for entry")
-                return None
-            if not self._verify_credential_password(credential_password, stored_hash):
-                self.logger.warning("Invalid credential password provided")
+            if not self.verify_entry_password(entry, credential_password):
                 return None
 
             # Decrypt the stored value using the credential password
@@ -327,7 +337,7 @@ class KeePassHandler:
             cred_type = "other"
             for line in notes_lines:
                 if line.startswith("Type:"):
-                    cred_type = line.split(":")[1].strip().lower()
+                    cred_type = line.partition(":")[2].strip().lower()
                     break
 
             return {
@@ -352,7 +362,7 @@ class KeePassHandler:
                 self.logger.warning(f"Rejected credential name: {reason}")
                 return False
 
-            entry = self.kp.find_entries(title=old_name, first=True)
+            entry = next((entry for entry in active_entries(self.kp) if entry.title == old_name), None)
             if not entry:
                 return False
 
@@ -423,7 +433,7 @@ class KeePassHandler:
             if not self.kp:
                 return False
 
-            entry = self.kp.find_entries(title=name, first=True)
+            entry = next((entry for entry in active_entries(self.kp) if entry.title == name), None)
             if not entry:
                 return False
 
@@ -464,7 +474,7 @@ class KeePassHandler:
                 return {}  # Database must be opened first with master password
 
             result = {}
-            for entry in self.kp.entries:
+            for entry in active_entries(self.kp):
                 # Parse type and dates from notes
                 notes = entry.notes or ""
                 cred_type = "other"
@@ -473,7 +483,7 @@ class KeePassHandler:
                 
                 for line in notes.split('\n'):
                     if line.startswith("Type:"):
-                        cred_type = line.split(":")[1].strip().lower()
+                        cred_type = line.partition(":")[2].strip().lower()
                     elif line.startswith("Created:"):
                         created_at = line.split(":", 1)[1].strip()
                     elif line.startswith("Last Accessed:"):

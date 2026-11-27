@@ -1,8 +1,8 @@
 # Quick start: API server over a private network
 
-The server exposes your KeePass vault to a browser (phone, laptop) over a private network. It is
-read-only: list entry names and retrieve one credential. Reference and roadmap:
-`docs/FASTAPI_ROADMAP.md`. How the vault file gets onto the server: `docs/VAULT_SYNC.md`.
+Vaultroom lets you search and use a KeePass vault from your phone or laptop over a private network.
+The server is read-only by default. Enable web editing only for a server-owned vault.
+See [vault location, writes, and restore](VAULT_SYNC.md).
 
 ## 1. Install
 
@@ -25,9 +25,10 @@ Environment variables or a `.env` file in the working directory (see `.env.examp
 | `API_PORT` | `8080` | Port |
 | `VAULT_PATH` | `~/.secure_credentials/vault.kdbx` | Vault file |
 | `AUTO_LOCK_TIMEOUT` | `300` | Idle seconds before auto-lock (10-86400) |
+| `WEB_VAULT_WRITES` | `0` | Set `1` for a server-owned vault to enable editing and import |
 | `TLS_CERT`, `TLS_KEY` | unset | Serve HTTPS directly (both required) |
 | `COOKIE_SECURE` | `0` | Set `1` when a proxy terminates HTTPS in front of the server |
-| `TRUSTED_PROXY` | `0` | Set `1` to trust `X-Forwarded-For` from a loopback proxy |
+| `TRUSTED_PROXY` | `0` | Set `1` to trust `X-Forwarded-For` and `X-Forwarded-Proto` from a loopback proxy |
 | `ALLOW_PUBLIC_BIND` | `0` | Required to bind `0.0.0.0` / `::` (not recommended) |
 
 Never put the master password anywhere: you type it in the web UI.

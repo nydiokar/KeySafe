@@ -104,7 +104,19 @@ The executable will be created in the `dist` directory.
 
 ## API server (private network)
 
-Run the vault as a read-only web service reachable only over your private network (Tailscale,
+Try the complete interface with a disposable KeePass vault first.
+
+```bash
+python -m secure_credentials.src.api.preview
+```
+
+Open http://127.0.0.1:8765/. Use `sandbox-vault` to unlock and `sandbox-entry` for sample entries.
+The preview has web writes enabled and discards its files on shutdown.
+
+The regular server defaults to read-only vault access. Enable `WEB_VAULT_WRITES=1` only when
+the server owns its vault file. See [sync, writes, and restore](docs/VAULT_SYNC.md).
+
+Run Vaultroom as a web service reachable only over your private network (Tailscale,
 WireGuard, ZeroTier, Yggdrasil, LAN): see `docs/QUICKSTART.md`. Vault placement and backups:
 `docs/VAULT_SYNC.md`. Running as a service: `docs/SERVICE.md`. Roadmap: `docs/FASTAPI_ROADMAP.md`.
 Project history and design decisions: `docs/PROJECT_HISTORY.md`.
