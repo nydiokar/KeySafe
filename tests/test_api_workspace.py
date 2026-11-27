@@ -249,3 +249,35 @@ def test_independent_servers_cannot_overwrite_each_others_commit(client: TestCli
         )
         assert response.status_code == 409
     assert [item["name"] for item in client.get("/api/workspace").json()["items"]] == ["Legacy entry", ENTRY["name"]]
+
+
+def test_invalid_metadata_cannot_poison_workspace(client: TestClient, path: Path) -> None:
+    original = path.read_bytes()
+    result = client.post(
+        "/api/workspace/items",
+        content=b'{"name":"Invalid","type":"login","secret":"value","credential_password":"pw","tag":"\\ud800"}',
+        headers={"Content-Type": "application/json", "If-Match": revision(client)},
+    )
+    assert result.status_code == 422
+    assert path.read_bytes() == original
+    assert client.get("/api/workspace").status_code == 200
+
+
+def test_read_only_upgrade_reads_legacy_entries_without_rewriting(path: Path) -> None:
+    database = PyKeePass(str(path), password=MASTER)
+    legacy = database.find_entries(title="Legacy entry", first=True)
+    legacy.password = "unwrapped-legacy-value"
+    database.save()
+    before = path.read_bytes()
+    with TestClient(create_app(Settings(vault_path=str(path)))) as client:
+        sign_in(client)
+        workspace_items = client.get("/api/workspace").json()
+        assert workspace_items["writable"] is False
+        item = workspace_items["items"][0]
+        assert item["name"] == "Legacy entry"
+        response = client.post(
+            f"/api/workspace/items/{item['id']}/retrieve",
+            json={"credential_password": ENTRY_PASSWORD},
+        )
+        assert response.json()["value"] == "unwrapped-legacy-value"
+    assert path.read_bytes() == before

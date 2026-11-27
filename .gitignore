@@ -34,8 +34,9 @@ wheels/
 # Project specific
 secure_credentials/credentials.kdbx
 secure_credentials/*.key
-secure_credentials/*.kdbx
-secure_credentials/*.kdb
+*.kdbx
+*.kdbx.vaultroom.lock
+*.kdb
 secure_credentials/*.log
 secure_credentials/logs/
 secure_credentials/.secure_credentials/

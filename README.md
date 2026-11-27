@@ -115,6 +115,8 @@ The preview has web writes enabled and discards its files on shutdown.
 
 The regular server defaults to read-only vault access. Enable `WEB_VAULT_WRITES=1` only when
 the server owns its vault file. See [sync, writes, and restore](docs/VAULT_SYNC.md).
+Existing KeePass vaults open in place and require no credential import.
+See the [PM2 runbook and rollback steps](docs/VAULTROOM_ROLLOUT.md) for a managed deployment.
 
 Run Vaultroom as a web service reachable only over your private network (Tailscale,
 WireGuard, ZeroTier, Yggdrasil, LAN): see `docs/QUICKSTART.md`. Vault placement and backups:

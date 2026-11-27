@@ -144,7 +144,7 @@ class WorkspaceEntry(WorkspacePassword):
     secret: str | None = Field(default=None, min_length=1, max_length=8192)
     notes: str | None = Field(default=None, max_length=2000)
 
-    @field_validator("secret", "notes", "credential_password")
+    @field_validator("type", "account", "tag", "issue", "secret", "notes", "credential_password")
     @classmethod
     def valid_unicode(cls, value: str | None) -> str | None:
         if value is not None:

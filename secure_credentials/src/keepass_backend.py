@@ -266,6 +266,8 @@ class KeePassHandler:
     def read_entry_secret(self, entry: Entry, password: str) -> Optional[str]:
         if not self.verify_entry_password(entry, password):
             return None
+        if entry.password is None:
+            return None
         return self._decrypt_value(entry.password, password)
 
     def build_protected_entry(

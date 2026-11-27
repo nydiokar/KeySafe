@@ -70,8 +70,11 @@ def entry_metadata(entry: Entry) -> dict[str, str | bool]:
     if isinstance(extra, dict):
         for key in ("type", "account", "tag", "favorite", "issue"):
             value = extra.get(key)
-            if type(value) is type(projection[key]):
-                projection[key] = value
+            if type(value) is not type(projection[key]):
+                continue
+            if isinstance(value, str) and any(0xD800 <= ord(char) <= 0xDFFF for char in value):
+                continue
+            projection[key] = value
     return projection
 
 
